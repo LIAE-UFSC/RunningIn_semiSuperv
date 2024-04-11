@@ -86,6 +86,9 @@ Mlim = [-Inf,Inf];
 Nlim = [-Inf,Inf];
 Dlim = [-Inf,Inf];
 
+%% Variando N
+
+close all;
 
 for kM = 1:length(modelNames)
      tableData = mixResults(dataAll,modelNames{kM},MAvg,Mlim,Nlim,Dlim);
@@ -111,8 +114,91 @@ for kM = 1:length(modelNames)
 %         plot(time,q)
 %         title(strcat("Unidade ",num2str(un_val(k2)), " (", modelNames{kM},")"))
 %     end
-    for k2 = 1:height(un_val)
+
+    f = figure;
+    f.Position = [306 458 1892 420];
+    % for k2 = 1:height(un_val)
+    for k2 = 2
         [dataOut,M,N,D,time] = separaND_unidade(tableData,un_val(k2),0);
+        for k3 = 1:length(N)
+            subplot(2,length(N),k3)
+            Z = squeeze(dataOut(1,k3,:,:));
+            q = quantile(Z,3);
+            q(1,:) = q(1,:)-q(2,:);
+            q(3,:) = q(2,:)-q(3,:);
+            boundedline(time',q(2,:)',q([3,1],:)','alpha');
+            title(strcat("Unidade 2 (", modelNames{kM},", N = ", num2str(N(k3)), ")"))
+        end
+    end
+
+    for k2 = 4
+        [dataOut,M,N,D,time] = separaND_unidade(tableData,un_val(k2),0);
+        for k3 = 1:length(N)
+            subplot(2,length(N),k3+length(N))
+            Z = squeeze(dataOut(1,k3,:,:));
+            q = quantile(Z,3);
+            q(1,:) = q(1,:)-q(2,:);
+            q(3,:) = q(2,:)-q(3,:);
+            boundedline(time',q(2,:)',q([3,1],:)','alpha');
+            title(strcat("Unidade 4 (", modelNames{kM},", N = ", num2str(N(k3)), ")"))
+        end
+    end
+end
+
+%% Variando D
+
+for kM = 1:length(modelNames)
+     tableData = mixResults(dataAll,modelNames{kM},MAvg,Mlim,Nlim,Dlim);
+
+     un_val = unique(tableData.Unidade);
+%     
+%     nens = tableData.N_ensaio;
+%     amacEnsaios = tableData(nens==0,:);
+%     amacEnsaios = removevars(amacEnsaios,{'N_ensaio'});
+%     
+%     un_val = unique(amacEnsaios.Unidade);
+%     
+%     figure;
+%     
+%     for k2 = 1:height(un_val)
+%         subplot(2,2,k2)
+%         dataUn = amacEnsaios(amacEnsaios.Unidade==un_val(k2),:);
+%         dataUn = sortrows(dataUn,{'Time'});
+%         time = dataUn.Time;
+%         dataUn = removevars(dataUn,{'Time','Unidade','RunIn'});
+%         class = table2array(dataUn);
+%         q = quantile(class',4);
+%         plot(time,q)
+%         title(strcat("Unidade ",num2str(un_val(k2)), " (", modelNames{kM},")"))
+%     end
+
+    f = figure;
+    f.Position = [306 458 1892 420];
+    % for k2 = 1:height(un_val)
+    for k2 = 2
+        [dataOut,M,N,D,time] = separaND_unidade(tableData,un_val(k2),0);
+        for k3 = 1:length(D)
+            subplot(2,length(D),k3)
+            Z = squeeze(dataOut(1,:,k3,:));
+            q = quantile(Z,3);
+            q(1,:) = q(1,:)-q(2,:);
+            q(3,:) = q(2,:)-q(3,:);
+            boundedline(time',q(2,:)',q([3,1],:)','alpha');
+            title(strcat("Unidade 2 (", modelNames{kM},", D = ", num2str(D(k3)), ")"))
+        end
+    end
+
+    for k2 = 4
+        [dataOut,M,N,D,time] = separaND_unidade(tableData,un_val(k2),0);
+        for k3 = 1:length(D)
+            subplot(2,length(D),k3+length(D))
+            Z = squeeze(dataOut(1,:,k3,:));
+            q = quantile(Z,3);
+            q(1,:) = q(1,:)-q(2,:);
+            q(3,:) = q(2,:)-q(3,:);
+            boundedline(time',q(2,:)',q([3,1],:)','alpha');
+            title(strcat("Unidade 4 (", modelNames{kM},", D = ", num2str(D(k3)), ")"))
+        end
     end
 end
 
