@@ -7,7 +7,7 @@ def plota_grafico(X_old,func_pred,
                   N_instantes,
                   D_espacamento,
                   M_janela,
-                  modelo):
+                  modelo, y_old = None):
     def cor_plot2(array):
         df = ["blue" if x == -1 else "black" if x != 1 else "gray" for x in array]
 
@@ -19,6 +19,11 @@ def plota_grafico(X_old,func_pred,
 
         return df
 
+    if y_old is None:
+        dfSave = X_old[["Tempo","N_ensaio","Unidade"]].assign(runinEst = func_pred)
+    else:
+        dfSave = X_old[["Tempo","N_ensaio","Unidade"]].assign(runinEst = func_pred, runinOg = y_old)
+    dfSave.to_csv(f'resultados/{classificador}/dados AN{N_instantes}D{D_espacamento}M{M_janela}CLASS{classificador}MODEL{modelo}.csv')
     legend_elements = [
         plt.Line2D([0], [0], marker='o', color='w', label='Running-in Complete', markerfacecolor='gray', markersize=10),
         plt.Line2D([0], [0], marker='o', color='w', label='Running-in Incomplete', markerfacecolor='black', markersize=10)
@@ -65,4 +70,3 @@ def plota_grafico(X_old,func_pred,
     plt.xlabel('Tempo [h]')
 
     plt.savefig(f'resultados/{classificador}/dados AN{N_instantes}D{D_espacamento}M{M_janela}CLASS{classificador}MODEL{modelo}')
-

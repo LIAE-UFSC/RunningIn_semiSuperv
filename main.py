@@ -10,13 +10,13 @@ import os
 #Variaveis globais
 
 modelo= 'a'
-classificadores = ['KNN',
-                   'RandomForest10',
-                   'RandomForest50',
-                   'RandomForest100',
-                   'RandomForest500',
-                   'RandomForest1000',
-                   'RandomForest5000',
+classificadores = [# 'KNN',
+                #    'RandomForest10',
+                #    'RandomForest50',
+                #    'RandomForest100',
+                #    'RandomForest500',
+                #    'RandomForest1000',
+                #    'RandomForest5000',
                    'SVM_Linear',
                    'SVM_Poly2',
                    'SVM_Poly3',
@@ -28,11 +28,12 @@ lista_grands = [
         'CorrenteRMS'
         ]
 
-N_instantes = [15,30,45,60]
-D_espacamento = [1,3,5]
-M_janela = [1,5,10]
+N_instantes = [1,2,4,8,16,32]
+D_espacamento = [1,5,10,15,20,25,30]
+M_janela = [1]
 tMin = 1
 tMax= 20
+windowMax = 180
 
 #
 dataframe_extraido = analise_modelos(modelo= modelo)
@@ -47,23 +48,24 @@ def pre_processamento(N_instantes,D_espacamento,M_janela):
     y_pre_categorizado = retira_y(dataframe_categorizado)
     return X_modelo,X_dataset,y_pre_categorizado, y
 
-def matriz_metthews():
-   return [[[0 for _ in range(3)] for _ in range(3)] for _ in range(4)]
-
 def criar_pasta(caminho):
     try:
-        os.mkdir(caminho)
+        os.makedirs(caminho)
         print(f"Pasta '{caminho}' criada com sucesso.")
     except FileExistsError:
         print(f"A pasta '{caminho}' já existe.")
 
 
 for x in range(len(classificadores)):
-    matriz = matriz_metthews()
-    criar_pasta(f'resultados/{classificadores[x]}')
+    matriz = np.empty((len(N_instantes),len(D_espacamento),len(M_janela),))
+    matriz[:] = np.nan;
+    criar_pasta(f'resultados\\{classificadores[x]}')
     for i in range(len(N_instantes)):
         for j in range(len(D_espacamento)):
             for k in range(len(M_janela)):
+                if ((N_instantes[i]-1)*D_espacamento[j]) > windowMax:
+                    break
+
                 X_modelo, X_dataset, y_pre_categorizado, y = pre_processamento(N_instantes=N_instantes[i],
                                                                                D_espacamento=D_espacamento[j],
                                                                                M_janela=M_janela[k])
@@ -75,10 +77,10 @@ for x in range(len(classificadores)):
                               D_espacamento=D_espacamento[j],
                               M_janela=M_janela[k],
                               modelo=modelo,
-
+                              y_old = y
                                 )
 
-                coeficiente_matthews = matthews_corrcoef(y, y_categorizado)
+                coeficiente_matthews = matthews_corrcoef(y[y!=-1], y_categorizado[y!=-1])
                 matriz[i][j][k] = coeficiente_matthews
 
     with open(f"resultados/{classificadores[x]}.txt", "w") as arquivo:
