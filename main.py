@@ -10,19 +10,19 @@ import os
 #Variaveis globais
 
 modelo= 'a'
-classificadores = [# 'KNN',
-                #    'RandomForest10',
-                #    'RandomForest50',
-                #    'RandomForest100',
-                #    'RandomForest500',
-                #    'RandomForest1000',
-                #    'RandomForest5000',
-                   'SVM_Linear',
-                   'SVM_Poly2',
-                   'SVM_Poly3',
-                   'SVM_rbf',
-                   'SVM_sigmoid',
-                   'Tree'
+classificadores = [
+                    'KNN5',
+                    'KNN50',
+                    'KNN500',
+                    'RandomForest10',
+                    'RandomForest100',
+                    'RandomForest1000',
+                    'SVM_Linear',
+                    'SVM_Poly2',
+                    'SVM_Poly3',
+                    'SVM_rbf',
+                    'SVM_sigmoid',
+                    'Tree'
                    ]
 lista_grands = [
         'CorrenteRMS'
@@ -56,10 +56,10 @@ def criar_pasta(caminho):
         print(f"A pasta '{caminho}' já existe.")
 
 
-for x in range(len(classificadores)):
+for classificador in classificadores:
     matriz = np.empty((len(N_instantes),len(D_espacamento),len(M_janela),))
-    matriz[:] = np.nan;
-    criar_pasta(f'resultados\\{classificadores[x]}')
+    matriz[:] = np.nan
+    criar_pasta(f'resultados\\{classificador}')
     for i in range(len(N_instantes)):
         for j in range(len(D_espacamento)):
             for k in range(len(M_janela)):
@@ -69,10 +69,10 @@ for x in range(len(classificadores)):
                 X_modelo, X_dataset, y_pre_categorizado, y = pre_processamento(N_instantes=N_instantes[i],
                                                                                D_espacamento=D_espacamento[j],
                                                                                M_janela=M_janela[k])
-                y_categorizado = modelo_classificador_semi_supervizionado(X_func=X_modelo, y_func=y_pre_categorizado, num_clasificador=x)
+                y_categorizado = modelo_classificador_semi_supervizionado(X_func=X_modelo, y_func=y_pre_categorizado, classificador=classificador)
 
                 plota_grafico(X_old=X_dataset, func_pred=y_categorizado,
-                              classificador=classificadores[x],
+                              classificador=classificador,
                               N_instantes=N_instantes[i],
                               D_espacamento=D_espacamento[j],
                               M_janela=M_janela[k],

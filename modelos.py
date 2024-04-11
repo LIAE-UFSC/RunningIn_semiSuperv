@@ -11,57 +11,30 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
 
-''''
-classificadores = ['KNN',
-                   'RandomForest10',
-                   'RandomForest50',
-                   'RandomForest100',
-                   'RandomForest500',
-                   'RandomForest1000',
-                   'RandomForest5000',
-                   'SVM_Linear',
-                   'SVM_Poly2',
-                   'SVM_Poly3',
-                   'SVM_rbf',
-                   'SVM_sigmoid',
-                   'Tree'
-                   ]
-    '''
 def modelo_classificador_semi_supervizionado(
         X_func,
         y_func,
-        num_clasificador
-):
-    # -------------------------
-    # Classificador supervisionado
-    # -------------------------
-
-    if num_clasificador == 0:
-        classificador_supervisionado = KNN_Classificador()
-    elif num_clasificador == 1:
-        classificador_supervisionado = random_Forest(10)
-    elif num_clasificador == 2:
-        classificador_supervisionado = random_Forest(50)
-    elif num_clasificador == 3:
-        classificador_supervisionado = random_Forest(100)
-    elif num_clasificador == 4:
-        classificador_supervisionado = random_Forest(500)
-    elif num_clasificador == 5:
-        classificador_supervisionado = random_Forest(1000)
-    elif num_clasificador == 6:
-        classificador_supervisionado = random_Forest(5000)
-    elif num_clasificador == 7:
+        classificador
+            ):
+    
+    if classificador[0:3] == 'KNN':
+        classificador_supervisionado = KNN_Classificador(int(classificador[3:]))
+    elif classificador[0:3] == 'Ran':
+        classificador_supervisionado = random_Forest(int(classificador[12:]))
+    elif classificador == 'SVM_Linear':
         classificador_supervisionado = SVM('linear')
-    elif num_clasificador == 8:
+    elif classificador == 'SVM_Poly2':
         classificador_supervisionado = SVM_poly(2)
-    elif num_clasificador == 9:
+    elif classificador == 'SVM_Poly3':
         classificador_supervisionado = SVM_poly(3)
-    elif num_clasificador == 10:
+    elif classificador == 'SVM_rbf':
         classificador_supervisionado = SVM('rbf')
-    elif num_clasificador == 11:
+    elif classificador == 'SVM_sigmoid':
         classificador_supervisionado = SVM('sigmoid')
-    elif num_clasificador == 12 :
+    elif classificador == 'Tree' :
         classificador_supervisionado = Tree()
+    else:
+        raise Exception("Unknown classifier")
 
     lbl = semi_supervised.SelfTrainingClassifier(base_estimator=classificador_supervisionado, threshold=0.8)
     lbl.fit(X_func, y_func)
@@ -69,15 +42,14 @@ def modelo_classificador_semi_supervizionado(
     return y_pred
 
 
-def KNN_Classificador():
-    return KNeighborsClassifier(n_neighbors=100, weights='distance', algorithm='auto')
+def KNN_Classificador(n=100):
+    return KNeighborsClassifier(n_neighbors=n, weights='distance', algorithm='auto',n_jobs=-1)
 
 def random_Forest(n_estimador):
-    return RandomForestClassifier(n_estimators=n_estimador)
+    return RandomForestClassifier(n_estimators=n_estimador,n_jobs=-1)
 
 def Tree():
     return tree.DecisionTreeClassifier()
-
 
 def SVM(kernel):
     return svm.SVC(kernel=kernel, probability=True)
