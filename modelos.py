@@ -52,8 +52,8 @@ def Tree():
     return tree.DecisionTreeClassifier()
 
 def SVM(kernel):
-    return svm.SVC(kernel=kernel, probability=True)
+    return svm.SVC(kernel=kernel, probability=True, cache_size=1000)
 
 def SVM_poly(n):
-    return svm.SVC(kernel='poly', probability=True,degree=n)
+    return svm.SVC(kernel='poly', probability=True,degree=n, cache_size=10000, max_iter=100000)
 
