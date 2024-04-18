@@ -37,7 +37,9 @@ for k = 1:height(dataAllA)
     end
 end
 
-dataAll = dataAllA;
+ind = (dataAllA.N>1) | ((dataAllA.N==1) & (dataAllA.D==1));
+
+dataAll = dataAllA(ind,:);
 
 clear dataAllA dataAllB
 
@@ -60,7 +62,7 @@ Dlim = [-Inf, Inf];
 fig = figure;
 fig.Position = [377 183 1949 795];
 
-subplot(2,length(models)+1,1)
+subplot(3,length(models)+1,1)
 
 for k = 1:length(N)
     apr(k,1) = nnz(metricsOk.N==N(k))/nnz(metrics.N==N(k));
@@ -74,7 +76,7 @@ title("Geral");
 clear apr
 
 for kM = 1:length(models)
-    subplot(2,length(models)+1,kM+1)
+    subplot(3,length(models)+1,kM+1)
     for k = 1:length(N)
         apr(k,1) = nnz(metricsOk.N==N(k) & strcmp(models{kM},metricsOk.Model))/nnz(metrics.N==N(k) & strcmp(models{kM},metrics.Model));
         apr(k,2) = nnz(metricsNotOk.N==N(k) & strcmp(models{kM},metricsNotOk.Model))/nnz(metrics.N==N(k) & strcmp(models{kM},metrics.Model));
@@ -86,36 +88,69 @@ for kM = 1:length(models)
     clear apr
 end
 
-subplot(2,length(models)+1,length(models)+2)
+subplot(3,length(models)+1,length(models)+2)
 
 for k = 1:length(D)
     apr(k,1) = nnz(metricsOk.D==D(k))/nnz(metrics.D==D(k));
     apr(k,2) = nnz(metricsNotOk.D==D(k))/nnz(metrics.D==D(k));
 end
-bar(apr,'stacked');
-xticklabels(num2str(D));
+bar(D,apr,'stacked');
 ylabel("Accepted proportion")
 xlabel("D")
 title("Geral");
 clear apr
 
 for kM = 1:length(models)
-    subplot(2,length(models)+1,length(models)+kM+2)
+    subplot(3,length(models)+1,length(models)+kM+2)
     for k = 1:length(D)
         apr(k,1) = nnz(metricsOk.D==D(k) & strcmp(models{kM},metricsOk.Model))/nnz(metrics.D==D(k) & strcmp(models{kM},metrics.Model));
         apr(k,2) = nnz(metricsNotOk.D==D(k) & strcmp(models{kM},metricsNotOk.Model))/nnz(metrics.D==D(k) & strcmp(models{kM},metrics.Model));
     end
-    bar(apr,'stacked');
-    xticklabels(num2str(D));
+    bar(D,apr,'stacked');
     xlabel("D")
+    title(models{kM});
+    clear apr
+end
+
+subplot(3,length(models)+1,2*length(models)+3)
+
+Window = unique((N-1)*D');
+
+for k = 1:length(Window)
+    indAll = (metrics.N-1).*(metrics.D) == Window(k);
+    indOk = (metricsOk.N-1).*(metricsOk.D) == Window(k);
+    indNotOk = (metricsNotOk.N-1).*(metricsNotOk.D) == Window(k);
+    if any(indAll)
+        apr(k,1) = nnz(indOk)/nnz(indAll);
+        apr(k,2) = nnz(indNotOk)/nnz(indAll);
+    end
+end
+Window = Window(1:size(apr,1));
+bar(apr,'stacked');
+ylabel("Accepted proportion")
+xlabel("Window")
+title("Geral");
+clear apr
+
+for kM = 1:length(models)
+    subplot(3,length(models)+1,2*length(models)+kM+3)
+    for k = 1:length(Window)
+        indAll = (metrics.N-1).*(metrics.D) == Window(k);
+        indOk = (metricsOk.N-1).*(metricsOk.D) == Window(k);
+        indNotOk = (metricsNotOk.N-1).*(metricsNotOk.D) == Window(k);
+        apr(k,1) = nnz(indOk & strcmp(models{kM},metricsOk.Model))/nnz(indAll & strcmp(models{kM},metrics.Model));
+        apr(k,2) = nnz(indNotOk & strcmp(models{kM},metricsNotOk.Model))/nnz(indAll & strcmp(models{kM},metrics.Model));
+    end
+    bar(apr,'stacked');
+    xlabel("Window")
     title(models{kM});
     clear apr
 end
 
 set(gcf, 'Color', 'w');
 tightfig();
-export_fig("ResultadosAnaliseParametros\analise%aprov","-pdf")
-close;
+% export_fig("ResultadosAnaliseParametros\analise%aprov","-pdf")
+% close;
 
 %% Variando N
 

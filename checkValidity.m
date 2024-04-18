@@ -25,12 +25,14 @@ for k = 1:height(dataAll)
         indAm = n_ensaio==0 & real==-1;
         un = unique(unidade(indAm));
         for kU = 1:length(un)
+            data = resultModel(strcmp(un{kU},unidade) & indAm);
             if kU ==1
                 temp(kM).AllUnitsOk=true;
                 temp(kM).NotOkay={};
             end
-            if all(resultModel(strcmp(un{kU},unidade) & indAm) == 0) || ...
-                    all(resultModel(strcmp(un{kU},unidade) & indAm) == 1)
+            if all(data == 0) || ...
+                    all(data == 1 ) || ...
+                    (data(end) == 0)
                 temp(kM).AllUnitsOk = false;
                 temp(kM).NotOkay = [temp(kM).NotOkay, un{kU}];
             end
