@@ -112,9 +112,10 @@ for kM = 1:length(models)
     clear apr
 end
 
+set(gcf, 'Color', 'w');
 tightfig();
-
-export_fig("ResultadosAnaliseParametros\analise%aprov","-transparent","-pdf")
+export_fig("ResultadosAnaliseParametros\analise%aprov","-pdf")
+close;
 
 %% Variando N
 
@@ -141,8 +142,10 @@ for kM = 1:length(modelNames)
         end
     end
 
+    set(gcf, 'Color', 'w');
     tightfig();
-    export_fig(strcat("ResultadosAnaliseParametros\variaN",modelNames{kM}),"-transparent","-pdf")
+    export_fig(strcat("ResultadosAnaliseParametros\variaN",modelNames{kM}),"-pdf")
+    close;
 end
 
 %% Variando D
@@ -170,8 +173,10 @@ for kM = 1:length(modelNames)
         end
     end
 
+    set(gcf, 'Color', 'w');
     tightfig();
-    export_fig(strcat("ResultadosAnaliseParametros\variaD",modelNames{kM}),"-transparent","-pdf")
+    export_fig(strcat("ResultadosAnaliseParametros\variaD",modelNames{kM}),"-pdf")
+    close;
 end
 
 %% Func
