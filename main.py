@@ -75,6 +75,9 @@ for classificador in classificadores:
         if ((N_instantes[i]-1)*D_espacamento[j]) > windowMax:
             return
         
+        if (((N_instantes[i] == 1) and (D_espacamento[j] > 1))) > windowMax:
+            return
+        
         if os.path.isfile(os.getcwd()+f'\\resultados\\{classificador}\\dados AN{N_instantes[i]}D{D_espacamento[j]}M{M_janela[k]}CLASS{classificador}MODEL{modelo}.png'):
             return
 
