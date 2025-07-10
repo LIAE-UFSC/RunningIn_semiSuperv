@@ -2,3 +2,4 @@ matplotlib
 numpy
 pandas
 scikit_learn
+delayedsw @ git+https://github.com/ThalerG/delayedsw@main
