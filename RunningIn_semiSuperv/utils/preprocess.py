@@ -1,29 +1,30 @@
-# Importa bibliotecas
-from buildDataset import en_dict2data, preproc_dataset
+from delayedsw import DelayedSlidingWindow
 import pandas as pd
 import numpy as np
 
-
-
-def retira_y(dataframe):
-    return tuple(dataframe.pop('Amaciado'))
-
-def prep_data(N_instantes,D_espacamento,M_janela,df_analise,lista_grands,tMin,tMax):
-        return preproc_dataset(df_analise, lista_grands, M_janela, N_instantes, D_espacamento, tempoMin = tMin, tempoMax = tMax, dropTempo = False, scale=False)
-
-
-def label_df(df):
-    df.loc[:, 'Amaciado'] = -1  # Sem valores
-    df.loc[(df.Tempo <= 5) & (df.N_ensaio == 0), 'Amaciado'] = 0
-    df.loc[(df.N_ensaio > 0) & (df.N_ensaio > 0), 'Amaciado'] = 1
-    return df
-
-def separa_Xy(df):
-    y = df.loc[:,'Amaciado']
-    X = df.drop(['Amaciado'], axis= 1 )
+def splitXY(data):
+    # TODO: write docstring
+    
+    y = data.loc[:,'Amaciado']
+    X = data.drop(['Amaciado'], axis= 1 )
     return X,y
 
+def filterTime(data, tMin, tMax):
+    # TODO: write docstring
 
-def retira_valores(df):
-    X = df.drop(['Unidade','N_ensaio','Tempo'], axis= 1 )
-    return X
+    return data[(data['Tempo'] >= tMin) & (data['Tempo'] <= tMax)]
+
+def labelData(data):
+    # TODO: write docstring
+
+    data.loc[:, 'Amaciado'] = -1  # Sem valores
+    data.loc[(data.Tempo <= 5) & (data.N_ensaio == 0), 'Amaciado'] = 0
+    data.loc[(data.N_ensaio > 0) & (data.N_ensaio > 0), 'Amaciado'] = 1
+    return data
+
+def preprocessData(data,window_size,delay,moving_average,feat,tMin=0,tMax=np.inf):
+    # TODO: write docstring
+    
+    # TODO: Implement the preprocessing steps
+    pass
+
