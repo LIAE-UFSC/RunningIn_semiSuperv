@@ -1,11 +1,11 @@
 #Import bibliotecas
 import numpy as np
-from analise_modelo import analise_modelos
-from pre_processador import retira_y,prep_data,label_df,separa_Xy,retira_valores
-from modelos import modelo_classificador_semi_supervizionado
+from RunningIn_semiSuperv.tests.analise_modelo import analise_modelos
+from RunningIn_semiSuperv.utils.pre_processador import retira_y,prep_data,label_df,separa_Xy,retira_valores
+from ..utils import models
 from sklearn.metrics import matthews_corrcoef
 from sklearn.preprocessing import StandardScaler
-from plotagem import plota_grafico
+from RunningIn_semiSuperv.plots import plota_grafico
 from joblib import Parallel, delayed
 import itertools
 import os
