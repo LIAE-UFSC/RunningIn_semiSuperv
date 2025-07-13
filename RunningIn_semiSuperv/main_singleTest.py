@@ -1,25 +1,13 @@
 #Import bibliotecas
 import numpy as np
-from utils.load import load_base_data
-from utils.preprocess import retira_y,prep_data,label_df,separa_Xy,retira_valores
-from utils.plots import plota_grafico
+from utils.load import loadBaseData
+from utils.preprocess import preprocessData
 from utils import models
 from sklearn.metrics import matthews_corrcoef
 from sklearn.preprocessing import StandardScaler
 from joblib import Parallel, delayed
 import itertools
 import os
-
-def pre_processamento(N_instantes,D_espacamento,M_janela, scaling = True):
-    dataframe_preparado = prep_data(N_instantes=N_instantes,D_espacamento=D_espacamento,M_janela=M_janela,df_analise=dataframe_extraido,lista_grands=lista_grands,tMin=tMin,tMax=tMax)
-    dataframe_categorizado = label_df(dataframe_preparado)
-    X_dataset, y = separa_Xy(dataframe_categorizado)
-    X_modelo = retira_valores(X_dataset)
-    y_pre_categorizado = retira_y(dataframe_categorizado)
-    if scaling:
-        X_modelo = StandardScaler().fit_transform(X_modelo)
-            
-    return X_modelo,X_dataset,y_pre_categorizado, y
 
 if __name__ == "__main__":
     # TODO: Implement example of single run of the semi-supervised model
