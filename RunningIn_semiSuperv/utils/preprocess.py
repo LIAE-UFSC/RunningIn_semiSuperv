@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from imblearn.under_sampling import RandomUnderSampler
 import pandas as pd
 import numpy as np
+from typing import Dict, List, Optional, Union, Any, Tuple
 
 class RunInPreprocessor:
     """
@@ -27,9 +28,17 @@ class RunInPreprocessor:
         feature_names_in_ (list): Names of input features from the fitted data.
     """
     
-    def __init__(self, window_size=1, delay=1, features=None, moving_average=1, t_min=0, t_max=np.inf, 
-                 run_in_transition_min=5, run_in_transition_max=np.inf,
-                 test_split=0.2, balance="none"):
+    def __init__(self, 
+                 window_size: int = 1, 
+                 delay: int = 1, 
+                 features: Optional[List[str]] = None, 
+                 moving_average: int = 1, 
+                 t_min: float = 0, 
+                 t_max: float = np.inf, 
+                 run_in_transition_min: float = 5, 
+                 run_in_transition_max: float = np.inf,
+                 test_split: Union[float, List[str]] = 0.2, 
+                 balance: str = "none") -> None:
         """
         Initialize the RunInPreprocessor with specified parameters.
         
@@ -186,7 +195,7 @@ class RunInPreprocessor:
             self.y_train = pd.Series()
             self.y_test = pd.Series()
 
-    def fit(self, data: pd.DataFrame):
+    def fit(self, data: pd.DataFrame) -> 'RunInPreprocessor':
         """
         Fit the preprocessor to the input data.
         
@@ -221,8 +230,10 @@ class RunInPreprocessor:
                                               columns_to_transform=self._features,
                                               split_by=['Unidade', 'N_ensaio'], order_by=['Tempo'],
                                               include_order=True, include_split=True)
+        
+        return self
 
-    def transform(self, data: pd.DataFrame):
+    def transform(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Transform input data using the fitted preprocessor.
         
@@ -347,7 +358,7 @@ class RunInPreprocessor:
         """
         return pd.concat([self.X_train, self.X_test]), pd.concat([self.y_train, self.y_test])
 
-    def fit_transform(self, data):
+    def fit_transform(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Fit the preprocessor to the data and transform it in one step.
         

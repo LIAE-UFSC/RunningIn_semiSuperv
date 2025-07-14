@@ -3,6 +3,7 @@ from RunningIn_semiSuperv.utils.preprocess import RunInPreprocessor
 from RunningIn_semiSuperv.utils.models import RunInSemiSupervisedModel
 import pandas as pd
 import numpy as np
+from typing import Dict, List, Optional, Union, Tuple, Any
 
 class RunInSemiSupervised:
     """
@@ -40,8 +41,7 @@ class RunInSemiSupervised:
         
     features : list of str, optional
         List of feature column names to use for modeling. If None, all numeric
-        columns except metadata will be used automatically. Common features include
-        ['PressaoDescarga', 'PressaoSuccao', 'CorrenteRMS']. Default is None.
+        columns except metadata will be used automatically. Default is None.
         
     window_size : int, default=1
         Size of the sliding window for time series feature engineering. Larger
@@ -178,13 +178,22 @@ class RunInSemiSupervised:
     RunInPreprocessor : Data preprocessing and feature engineering pipeline
     RunInSemiSupervisedModel : Semi-supervised learning model wrapper
     """
-    def __init__(self, dict_folder=None, model=None, features=None,
-                 window_size=1, delay=1, moving_average=1, t_min=0, t_max=np.inf, 
-                 run_in_transition_min=5, run_in_transition_max=np.inf,
-                 test_split=0.2, balance="none", 
-                 classifier = "LogisticRegression",
-                 classifier_params=None,
-                 semisupervised_params=None):
+    def __init__(self, 
+                 dict_folder: Optional[List[Dict[str, Union[str, List[str]]]]] = None, 
+                 model: Optional[str] = None, 
+                 features: Optional[List[str]] = None,
+                 window_size: int = 1, 
+                 delay: int = 1, 
+                 moving_average: int = 1, 
+                 t_min: float = 0, 
+                 t_max: float = np.inf, 
+                 run_in_transition_min: float = 5, 
+                 run_in_transition_max: float = np.inf,
+                 test_split: Union[float, List[str]] = 0.2, 
+                 balance: str = "none", 
+                 classifier: str = "LogisticRegression",
+                 classifier_params: Optional[Dict[str, Any]] = None,
+                 semisupervised_params: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize the RunInSemiSupervised pipeline with specified parameters.
         
@@ -347,7 +356,7 @@ class RunInSemiSupervised:
         self._set_preprocessor_params()
         self._set_model_params()
 
-    def fit(self, load_data=True):
+    def fit(self, load_data: bool = True) -> 'RunInSemiSupervised':
 
         if load_data:
             # Load data
@@ -358,8 +367,10 @@ class RunInSemiSupervised:
 
         # Train model
         self.model.fit(self.preprocessor.X_train, self.preprocessor.y_train)
+        
+        return self
 
-    def transform_and_predict(self, X):
+    def transform_and_predict(self, X: Any) -> Any:
         """
         Transform and predict using the trained model.
         
@@ -375,7 +386,7 @@ class RunInSemiSupervised:
         # Make predictions
         return self.model.predict(X_transformed)
     
-    def predict(self, X):
+    def predict(self, X: Any) -> Any:
         """
         Predict labels using the trained model.
         
@@ -389,7 +400,7 @@ class RunInSemiSupervised:
         # Make predictions
         return self.model.predict(X)
     
-    def predict_proba(self, X):
+    def predict_proba(self, X: Any) -> Any:
         """
         Predict probabilities using the trained model.
         
@@ -405,7 +416,7 @@ class RunInSemiSupervised:
         # Make probability predictions
         return self.model.predict_proba(X_transformed)
     
-    def evaluate(self):
+    def evaluate(self) -> Any:
         """
         Evaluate the model on the test set.
         

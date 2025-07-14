@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import PurePath
 import os
+from typing import Dict, List, Optional, Union, Any
 
 class RunInDataLoader:
     """
@@ -106,7 +107,10 @@ class RunInDataLoader:
             },
         ]
     
-    def __init__(self, dict_folder=None, model=None, features=None):
+    def __init__(self, 
+                 dict_folder: Optional[List[Dict[str, Union[str, List[str]]]]] = None, 
+                 model: Optional[str] = None, 
+                 features: Optional[List[str]] = None) -> None:
         """
         Initialize the RunInDataLoader.
         
@@ -157,7 +161,7 @@ class RunInDataLoader:
         self.features = features
         self.data = pd.DataFrame()
 
-    def load_data(self):
+    def load_data(self) -> pd.DataFrame:
         """
         Load and return the test data from CSV files.
         
@@ -204,7 +208,7 @@ class RunInDataLoader:
 
         return self.data
     
-    def clear_data(self):
+    def clear_data(self) -> None:
         """
         Clear the cached data from memory.
         
@@ -220,7 +224,7 @@ class RunInDataLoader:
         """
         self.data = pd.DataFrame()
 
-    def reload_data(self):
+    def reload_data(self) -> pd.DataFrame:
         """
         Clear cached data and reload it from CSV files.
         
@@ -241,7 +245,7 @@ class RunInDataLoader:
         self.clear_data()
         return self.load_data()
 
-    def _joinTests(self, test_all: list[dict]):
+    def _joinTests(self, test_all: List[Dict[str, Any]]) -> pd.DataFrame:
         """
         Join multiple test DataFrames with proper unit and test identification.
         

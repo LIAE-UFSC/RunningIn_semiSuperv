@@ -8,6 +8,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.gaussian_process import GaussianProcessRegressor
+from typing import Dict, List, Optional, Union, Any
 
 class RunInSemiSupervisedModel(semi_supervised.SelfTrainingClassifier):
     """
@@ -47,7 +48,7 @@ class RunInSemiSupervisedModel(semi_supervised.SelfTrainingClassifier):
         >>> model.fit(X_train, y_train)  # y_train can contain -1 for unlabeled
         >>> predictions = model.predict(X_test)
     """
-    def __init__(self, classifier: str = "LogisticRegression", classifier_args=None, **kwargs) -> None:
+    def __init__(self, classifier: str = "LogisticRegression", classifier_args: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         """
         Initialize the RunInSemiSupervisedModel.
         
@@ -77,7 +78,7 @@ class RunInSemiSupervisedModel(semi_supervised.SelfTrainingClassifier):
         estimator = self._select_model(classifier, **self.classifier_args)
         super().__init__(estimator=estimator, **kwargs)
 
-    def _select_model(self, classifier, **kwargs):
+    def _select_model(self, classifier: str, **kwargs: Any) -> Any:
         """
         Select and instantiate the appropriate base classifier.
         
