@@ -16,8 +16,8 @@ class RunInPreprocessor:
         delay (int): Delay parameter for the sliding window.
         features (list or None): List of feature columns to use. If None, all columns are used.
         moving_average (int): Window size for moving average filtering.
-        tMin (float): Minimum time threshold for filtering data.
-        tMax (float): Maximum time threshold for filtering data.
+        t_min (float): Minimum time threshold for filtering data.
+        t_max (float): Maximum time threshold for filtering data.
         run_in_transition_min (float): Minimum time for run-in transition labeling.
         run_in_transition_max (float): Maximum time for run-in transition labeling.
         X (pd.DataFrame): Processed feature matrix.
@@ -25,7 +25,7 @@ class RunInPreprocessor:
         feature_names_in_ (list): Names of input features from the fitted data.
     """
     
-    def __init__(self, window_size=1, delay=1, features=None, moving_average=1, tMin=0, tMax=np.inf, run_in_transition_min=5, run_in_transition_max = np.inf):
+    def __init__(self, window_size=1, delay=1, features=None, moving_average=1, t_min=0, t_max=np.inf, run_in_transition_min=5, run_in_transition_max=np.inf):
         """
         Initialize the RunInPreprocessor with specified parameters.
         
@@ -35,8 +35,8 @@ class RunInPreprocessor:
             features (list, optional): List of feature columns to transform. If None,
                 all columns will be used. Defaults to None.
             moving_average (int, optional): Window size for moving average filter. Defaults to 1.
-            tMin (float, optional): Minimum time threshold for data filtering. Defaults to 0.
-            tMax (float, optional): Maximum time threshold for data filtering. Defaults to np.inf.
+            t_min (float, optional): Minimum time threshold for data filtering. Defaults to 0.
+            t_max (float, optional): Maximum time threshold for data filtering. Defaults to np.inf.
             run_in_transition_min (float, optional): Minimum time threshold for run-in 
                 transition labeling. Defaults to 5.
             run_in_transition_max (float, optional): Maximum time threshold for run-in
@@ -47,8 +47,8 @@ class RunInPreprocessor:
         self.delay = delay
         self.features = features
         self.moving_average = moving_average
-        self.tMin = tMin
-        self.tMax = tMax
+        self.t_min = t_min
+        self.t_max = t_max
         self.run_in_transition_min = run_in_transition_min
         self.run_in_transition_max = run_in_transition_max
         self.X = pd.DataFrame()
@@ -57,7 +57,7 @@ class RunInPreprocessor:
 
         # TODO: initialize filter and windowing methods
 
-    def set_filter_params(self, features=None, moving_average_window=1, tMin=0, tMax=np.inf, reset=True):
+    def set_filter_params(self, features=None, moving_average_window=1, t_min=0, t_max=np.inf, reset=True):
         """
         Set filtering parameters for the preprocessor.
         
@@ -66,16 +66,16 @@ class RunInPreprocessor:
                 all columns will be used. Defaults to None.
             moving_average_window (int, optional): Window size for moving average filter.
                 Defaults to 1.
-            tMin (float, optional): Minimum time threshold for data filtering. Defaults to 0.
-            tMax (float, optional): Maximum time threshold for data filtering. Defaults to np.inf.
+            t_min (float, optional): Minimum time threshold for data filtering. Defaults to 0.
+            t_max (float, optional): Maximum time threshold for data filtering. Defaults to np.inf.
             reset (bool, optional): Whether to reset stored data and feature names.
                 Defaults to True.
         """
 
         self.features = features
         self.moving_average = moving_average_window
-        self.tMin = tMin
-        self.tMax = tMax
+        self.t_min = t_min
+        self.t_max = t_max
 
         if reset:
             self.feature_names_in_ = []
@@ -188,7 +188,7 @@ class RunInPreprocessor:
             ValueError: If the preprocessor has not been fitted yet.
         """
 
-        if len(self.feature_names_in_) == 0:
+        if not self.feature_names_in_:
             raise ValueError("The preprocessor has not been fitted yet. Please call fit() before transform().")
 
         group_columns = ['Unidade','N_ensaio']
@@ -261,25 +261,25 @@ class RunInPreprocessor:
         
         y = data.loc[:,'Amaciado']
         X = data.drop(['Amaciado'], axis= 1 )
-        return X,y
+        return X, y
 
     def _filter_time(self, data):
         """
         Filter data based on time constraints.
         
         This private method filters the input data to include only rows where
-        the 'Tempo' column values fall within the specified time range [tMin, tMax].
+        the 'Tempo' column values fall within the specified time range [t_min, t_max].
         
         Args:
             data (pd.DataFrame): Input data containing a 'Tempo' column.
             
         Returns:
-            pd.DataFrame: Filtered data with rows where tMin <= Tempo <= tMax.
+            pd.DataFrame: Filtered data with rows where t_min <= Tempo <= t_max.
         """
 
-        return data[(data['Tempo'] >= self.tMin) & (data['Tempo'] <= self.tMax)]
+        return data[(data['Tempo'] >= self.t_min) & (data['Tempo'] <= self.t_max)]
 
-    def update_labels(self, data, run_in_transition_min=None, run_in_transition_max = None) :
+    def update_labels(self, data, run_in_transition_min=None, run_in_transition_max=None):
         """
         Update the 'Amaciado' labels based on run-in transition criteria.
         
@@ -311,6 +311,6 @@ class RunInPreprocessor:
         data.loc[:, 'Amaciado'] = -1  # Unknown label
         data.loc[(data.Tempo <= self.run_in_transition_min) & (data.N_ensaio == 0), 'Amaciado'] = 0 # Known not run-in at beginning of first test
         data.loc[(data.Tempo >= self.run_in_transition_max) & (data.N_ensaio == 0), 'Amaciado'] = 1 # Known run-in in first test
-        data.loc[(data.N_ensaio > 0) & (data.N_ensaio > 0), 'Amaciado'] = 1 # Known run-in after first test
+        data.loc[(data.N_ensaio > 0), 'Amaciado'] = 1  # Known run-in after first test
 
         return data

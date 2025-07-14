@@ -140,16 +140,16 @@ class RunInDataLoader:
         """
 
         if dict_folder is None:
-            baseFolder = PurePath(os.getcwd(),'LabeledData')
+            base_folder = PurePath(os.getcwd(), 'LabeledData')
             if model is None:
                 raise ValueError("Model must be specified if dict_folder is not provided.")
             elif model == "all":
                 test_all = self._base_folders
-                self.dict_folder = [{"unit": unit["unit"], "tests": [PurePath(baseFolder, test) for test in unit['tests']]}
+                self.dict_folder = [{"unit": unit["unit"], "tests": [PurePath(base_folder, test) for test in unit['tests']]}
                                     for unit in test_all]
             else:
                 test_all = [unit for unit in self._base_folders if unit['unit'][0] == model]
-                self.dict_folder = [{"unit": unit['unit'], "tests": [PurePath(baseFolder, test) for test in unit['tests']]}
+                self.dict_folder = [{"unit": unit['unit'], "tests": [PurePath(base_folder, test) for test in unit['tests']]}
                                     for unit in test_all]
         else:
             self.dict_folder = dict_folder
@@ -276,12 +276,12 @@ class RunInDataLoader:
 
         data_total = pd.DataFrame()
 
-        for un in test_all: # Iterate through each unit
+        for unit in test_all:  # Iterate through each unit
             data_unit = pd.DataFrame()
-            for k,en in enumerate(un['tests']): # Iterate through each test
-                en['N_ensaio'] = k # Add the test number
-                data_unit = pd.concat([data_unit,en])
-            data_unit['Unidade'] = un['unit'] # Add the unit name
-            data_total = pd.concat([data_total,data_unit])
+            for k, test in enumerate(unit['tests']):  # Iterate through each test
+                test['N_ensaio'] = k  # Add the test number
+                data_unit = pd.concat([data_unit, test])
+            data_unit['Unidade'] = unit['unit']  # Add the unit name
+            data_total = pd.concat([data_total, data_unit])
 
         return data_total

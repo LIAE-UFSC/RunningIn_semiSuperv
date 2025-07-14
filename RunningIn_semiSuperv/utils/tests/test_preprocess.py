@@ -49,10 +49,10 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertEqual(preprocessor.delay, 1)
         self.assertIsNone(preprocessor.features)
         self.assertEqual(preprocessor.moving_average, 1)
-        self.assertEqual(preprocessor.tMin, 0)
-        self.assertEqual(preprocessor.tMax, np.inf)
+        self.assertEqual(preprocessor.t_min, 0)
+        self.assertEqual(preprocessor.t_max, float('inf'))
         self.assertEqual(preprocessor.run_in_transition_min, 5)
-        self.assertEqual(preprocessor.run_in_transition_max, np.inf)
+        self.assertEqual(preprocessor.run_in_transition_max, float('inf'))
         self.assertTrue(preprocessor.X.empty)
         self.assertTrue(preprocessor.y.empty)
         self.assertEqual(preprocessor.feature_names_in_, [])
@@ -65,8 +65,8 @@ class TestRunInPreprocessor(unittest.TestCase):
             delay=2,
             features=custom_features,
             moving_average=5,
-            tMin=1.0,
-            tMax=100.0,
+            t_min=1.0,
+            t_max=100.0,
             run_in_transition_min=10,
             run_in_transition_max=50
         )
@@ -75,8 +75,8 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertEqual(preprocessor.delay, 2)
         self.assertEqual(preprocessor.features, custom_features)
         self.assertEqual(preprocessor.moving_average, 5)
-        self.assertEqual(preprocessor.tMin, 1.0)
-        self.assertEqual(preprocessor.tMax, 100.0)
+        self.assertEqual(preprocessor.t_min, 1.0)
+        self.assertEqual(preprocessor.t_max, 100.0)
         self.assertEqual(preprocessor.run_in_transition_min, 10)
         self.assertEqual(preprocessor.run_in_transition_max, 50)
     
@@ -88,15 +88,15 @@ class TestRunInPreprocessor(unittest.TestCase):
         preprocessor.set_filter_params(
             features=custom_features,
             moving_average_window=3,
-            tMin=2.0,
-            tMax=20.0,
+            t_min=2.0,
+            t_max=20.0,
             reset=True
         )
         
         self.assertEqual(preprocessor.features, custom_features)
         self.assertEqual(preprocessor.moving_average, 3)
-        self.assertEqual(preprocessor.tMin, 2.0)
-        self.assertEqual(preprocessor.tMax, 20.0)
+        self.assertEqual(preprocessor.t_min, 2.0)
+        self.assertEqual(preprocessor.t_max, 20.0)
         self.assertEqual(preprocessor.feature_names_in_, [])
         self.assertTrue(preprocessor.X.empty)
         self.assertTrue(preprocessor.y.empty)
@@ -209,8 +209,8 @@ class TestRunInPreprocessor(unittest.TestCase):
     def test_transform_pipeline(self, mock_dsw, mock_mat):
         """Test the complete transform pipeline."""
         preprocessor = RunInPreprocessor(
-            tMin=1.0,
-            tMax=10.0,
+            t_min=1.0,
+            t_max=10.0,
             run_in_transition_min=3.0,
             run_in_transition_max=8.0
         )
@@ -258,7 +258,7 @@ class TestRunInPreprocessor(unittest.TestCase):
     
     def test_filter_time(self):
         """Test the _filter_time method."""
-        preprocessor = RunInPreprocessor(tMin=2.0, tMax=8.0)
+        preprocessor = RunInPreprocessor(t_min=2.0, t_max=8.0)
         
         filtered_data = preprocessor._filter_time(self.sample_data)
         
