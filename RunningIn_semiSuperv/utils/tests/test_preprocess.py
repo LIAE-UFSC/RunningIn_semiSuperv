@@ -53,9 +53,13 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertEqual(preprocessor.t_max, float('inf'))
         self.assertEqual(preprocessor.run_in_transition_min, 5)
         self.assertEqual(preprocessor.run_in_transition_max, float('inf'))
-        self.assertTrue(preprocessor.X.empty)
-        self.assertTrue(preprocessor.y.empty)
+        self.assertTrue(preprocessor.X_train.empty)
+        self.assertTrue(preprocessor.y_train.empty)
+        self.assertTrue(preprocessor.X_test.empty)
+        self.assertTrue(preprocessor.y_test.empty)
         self.assertEqual(preprocessor.feature_names_in_, [])
+        self.assertEqual(preprocessor.test_split, 0.2)
+        self.assertEqual(preprocessor.balance, "none")
     
     def test_init_custom_parameters(self):
         """Test initialization with custom parameters."""
@@ -98,15 +102,15 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertEqual(preprocessor.t_min, 2.0)
         self.assertEqual(preprocessor.t_max, 20.0)
         self.assertEqual(preprocessor.feature_names_in_, [])
-        self.assertTrue(preprocessor.X.empty)
-        self.assertTrue(preprocessor.y.empty)
+        self.assertTrue(preprocessor.X_train.empty)
+        self.assertTrue(preprocessor.y_train.empty)
     
     def test_set_filter_params_no_reset(self):
         """Test setting filter parameters without reset."""
         preprocessor = RunInPreprocessor()
         preprocessor.feature_names_in_ = ['test']
-        preprocessor.X = pd.DataFrame({'col': [1, 2, 3]})
-        preprocessor.y = pd.Series([1, 0, 1])
+        preprocessor.X_train = pd.DataFrame({'col': [1, 2, 3]})
+        preprocessor.y_train = pd.Series([1, 0, 1])
         
         preprocessor.set_filter_params(
             features=['PressaoDescarga'],
@@ -115,8 +119,8 @@ class TestRunInPreprocessor(unittest.TestCase):
         
         self.assertEqual(preprocessor.features, ['PressaoDescarga'])
         self.assertEqual(preprocessor.feature_names_in_, ['test'])  # Should not be reset
-        self.assertFalse(preprocessor.X.empty)  # Should not be reset
-        self.assertFalse(preprocessor.y.empty)  # Should not be reset
+        self.assertFalse(preprocessor.X_train.empty)  # Should not be reset
+        self.assertFalse(preprocessor.y_train.empty)  # Should not be reset
     
     def test_set_window_params(self):
         """Test setting window parameters."""
@@ -159,10 +163,10 @@ class TestRunInPreprocessor(unittest.TestCase):
         
         preprocessor.fit(self.sample_data)
         
-        # Check that features are set to all columns
-        expected_features = self.sample_data.columns.tolist()
+        # Check that features exclude metadata and target columns
+        expected_features = ['PressaoDescarga', 'PressaoSuccao', 'CorrenteRMS']
         self.assertEqual(preprocessor._features, expected_features)
-        self.assertEqual(preprocessor.feature_names_in_, expected_features)
+        self.assertEqual(preprocessor.feature_names_in_, self.sample_data.columns.tolist())
         
         # Check that transformers are initialized
         mock_mat.assert_called_once()
@@ -240,9 +244,9 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertIsInstance(X, pd.DataFrame)
         self.assertIsInstance(y, pd.Series)
         
-        # Verify that internal X and y are stored
-        self.assertFalse(preprocessor.X.empty)
-        self.assertFalse(preprocessor.y.empty)
+        # Verify that internal train and test data are stored
+        self.assertFalse(preprocessor.X_train.empty or preprocessor.X_test.empty)
+        self.assertFalse(preprocessor.y_train.empty or preprocessor.y_test.empty)
     
     def test_splitXY(self):
         """Test the _splitXY method."""
@@ -415,6 +419,304 @@ class TestRunInPreprocessor(unittest.TestCase):
         # All N_ensaio > 0 should be labeled as 1
         subsequent_tests = labeled[labeled['N_ensaio'] > 0]
         self.assertTrue(all(subsequent_tests['Amaciado'] == 1))
+    
+    def test_init_with_test_split_and_balance_parameters(self):
+        """Test initialization with new test_split and balance parameters."""
+        # Test with float test_split
+        preprocessor1 = RunInPreprocessor(test_split=0.3, balance="none")
+        self.assertEqual(preprocessor1.test_split, 0.3)
+        self.assertEqual(preprocessor1.balance, "none")
+        
+        # Test with list test_split
+        preprocessor2 = RunInPreprocessor(test_split=['A2', 'A3'], balance="undersample")
+        self.assertEqual(preprocessor2.test_split, ['A2', 'A3'])
+        self.assertEqual(preprocessor2.balance, "undersample")
+    
+    def test_set_test_split_method(self):
+        """Test the set_test_split method."""
+        preprocessor = RunInPreprocessor()
+        
+        # Test setting float test_split
+        preprocessor.set_test_split(0.4, reset=False)
+        self.assertEqual(preprocessor.test_split, 0.4)
+        
+        # Test setting list test_split
+        preprocessor.set_test_split(['A1', 'A2'], reset=True)
+        self.assertEqual(preprocessor.test_split, ['A1', 'A2'])
+        self.assertTrue(preprocessor.X_train.empty)
+        self.assertTrue(preprocessor.y_train.empty)
+        
+    def test_set_balance_params_method(self):
+        """Test the set_balance_params method."""
+        preprocessor = RunInPreprocessor()
+        
+        # Test setting balance to undersample
+        preprocessor.set_balance_params("undersample", reset=False)
+        self.assertEqual(preprocessor.balance, "undersample")
+        
+        # Test setting balance to none with reset
+        preprocessor.set_balance_params("none", reset=True)
+        self.assertEqual(preprocessor.balance, "none")
+        self.assertTrue(preprocessor.X_train.empty)
+        self.assertTrue(preprocessor.y_train.empty)
+        
+    def test_train_test_split_with_float(self):
+        """Test train-test split functionality with float proportion."""
+        preprocessor = RunInPreprocessor(test_split=0.3, balance="none")
+        
+        # Create larger dataset for meaningful split testing
+        large_data = pd.DataFrame({
+            'Tempo': np.tile(np.arange(0, 10, 0.5), 6),  # 120 rows total
+            'PressaoDescarga': np.random.randn(120),
+            'PressaoSuccao': np.random.randn(120),
+            'CorrenteRMS': np.random.randn(120),
+            'Unidade': (['A1'] * 20 + ['A2'] * 20 + ['A3'] * 20) * 2,
+            'N_ensaio': [0] * 60 + [1] * 60,
+            'Amaciado': [0] * 120
+        })
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers to return the input data unchanged
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = large_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = large_data.drop(['Amaciado'], axis=1)
+            
+            X, y = preprocessor.fit_transform(large_data)
+            X_train, y_train, X_test, y_test = preprocessor.get_train_test_data()
+            
+            # Check that data was split
+            self.assertGreater(len(X_train), 0)
+            self.assertGreater(len(X_test), 0)
+            
+            # Check approximate split ratio (allowing for stratification adjustments)
+            total_size = len(X_train) + len(X_test)
+            test_ratio = len(X_test) / total_size
+            self.assertAlmostEqual(test_ratio, 0.3, delta=0.1)
+            
+    def test_train_test_split_with_unit_list(self):
+        """Test train-test split functionality with unit list."""
+        preprocessor = RunInPreprocessor(test_split=['A2'], balance="none")
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers to return the input data unchanged
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            
+            X, y = preprocessor.fit_transform(self.sample_data)
+            X_train, y_train, X_test, y_test = preprocessor.get_train_test_data()
+            
+            # Check that test set contains only A2 units
+            if len(X_test) > 0:
+                test_units = X_test['Unidade'].unique()
+                self.assertTrue(all(unit in ['A2'] for unit in test_units))
+            
+            # Check that training set contains other units
+            if len(X_train) > 0:
+                train_units = X_train['Unidade'].unique()
+                self.assertFalse(any(unit == 'A2' for unit in train_units))
+                
+    def test_train_test_split_invalid_parameter(self):
+        """Test train-test split with invalid parameter type."""
+        preprocessor = RunInPreprocessor(test_split="invalid", balance="none")
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            
+            with self.assertRaises(ValueError) as context:
+                preprocessor.fit_transform(self.sample_data)
+            
+            self.assertIn("test_split must be a float or a list of unit names", str(context.exception))
+            
+    def test_balance_classes_undersample(self):
+        """Test class balancing with undersampling."""
+        # Create imbalanced data
+        imbalanced_data = pd.DataFrame({
+            'Tempo': np.arange(0, 10, 0.1),  # 100 rows
+            'PressaoDescarga': np.random.randn(100),
+            'PressaoSuccao': np.random.randn(100),
+            'CorrenteRMS': np.random.randn(100),
+            'Unidade': ['A1'] * 100,
+            'N_ensaio': [0] * 50 + [1] * 50,
+            'Amaciado': [0] * 100
+        })
+        
+        preprocessor = RunInPreprocessor(test_split=0.2, balance="undersample")
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = imbalanced_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = imbalanced_data.drop(['Amaciado'], axis=1)
+            
+            X, y = preprocessor.fit_transform(imbalanced_data)
+            X_train, y_train, X_test, y_test = preprocessor.get_train_test_data()
+            
+            # Check that training data exists
+            self.assertGreater(len(X_train), 0)
+            self.assertGreater(len(y_train), 0)
+            
+            # Check that the balance method was applied (balance_classes should have been called)
+            # Since the data is artificially created, we mainly test that no errors occurred
+            self.assertEqual(len(X_train), len(y_train))
+            
+    def test_balance_classes_none(self):
+        """Test that no balancing occurs when balance='none'."""
+        preprocessor = RunInPreprocessor(test_split=0.3, balance="none")
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            
+            X, y = preprocessor.fit_transform(self.sample_data)
+            X_train, y_train, X_test, y_test = preprocessor.get_train_test_data()
+            
+            # Check that data exists and no balancing was applied
+            self.assertGreater(len(X_train) + len(X_test), 0)
+            self.assertEqual(len(X_train), len(y_train))
+            self.assertEqual(len(X_test), len(y_test))
+            
+    def test_get_train_test_data_method(self):
+        """Test the get_train_test_data method."""
+        preprocessor = RunInPreprocessor(test_split=0.4, balance="none")
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            
+            X, y = preprocessor.fit_transform(self.sample_data)
+            X_train, y_train, X_test, y_test = preprocessor.get_train_test_data()
+            
+            # Check that the method returns the correct data types
+            self.assertIsInstance(X_train, pd.DataFrame)
+            self.assertIsInstance(y_train, pd.Series)
+            self.assertIsInstance(X_test, pd.DataFrame)
+            self.assertIsInstance(y_test, pd.Series)
+            
+            # Check that data shapes are consistent
+            self.assertEqual(len(X_train), len(y_train))
+            self.assertEqual(len(X_test), len(y_test))
+            
+    def test_get_train_data_method(self):
+        """Test the get_train_data method."""
+        preprocessor = RunInPreprocessor(test_split=0.3)
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            
+            preprocessor.fit_transform(self.sample_data)
+            X_train, y_train = preprocessor.get_train_data()
+            
+            # Check return types and consistency
+            self.assertIsInstance(X_train, pd.DataFrame)
+            self.assertIsInstance(y_train, pd.Series)
+            self.assertEqual(len(X_train), len(y_train))
+            
+    def test_get_test_data_method(self):
+        """Test the get_test_data method."""
+        preprocessor = RunInPreprocessor(test_split=0.3)
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            
+            preprocessor.fit_transform(self.sample_data)
+            X_test, y_test = preprocessor.get_test_data()
+            
+            # Check return types and consistency
+            self.assertIsInstance(X_test, pd.DataFrame)
+            self.assertIsInstance(y_test, pd.Series)
+            self.assertEqual(len(X_test), len(y_test))
+            
+    def test_get_full_data_method(self):
+        """Test the get_full_data method."""
+        preprocessor = RunInPreprocessor(test_split=0.3)
+        
+        with patch('RunningIn_semiSuperv.utils.preprocess.MovingAverageTransformer') as mock_mat, \
+             patch('RunningIn_semiSuperv.utils.preprocess.DelayedSlidingWindow') as mock_dsw:
+            
+            # Mock the transformers
+            mock_mat_instance = MagicMock()
+            mock_dsw_instance = MagicMock()
+            mock_mat.return_value = mock_mat_instance
+            mock_dsw.return_value = mock_dsw_instance
+            mock_mat_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            mock_dsw_instance.fit_transform.return_value = self.sample_data.drop(['Amaciado'], axis=1)
+            
+            preprocessor.fit_transform(self.sample_data)
+            X_full, y_full = preprocessor.get_full_data()
+            X_train, y_train, X_test, y_test = preprocessor.get_train_test_data()
+            
+            # Check that full data is combination of train and test
+            self.assertEqual(len(X_full), len(X_train) + len(X_test))
+            self.assertEqual(len(y_full), len(y_train) + len(y_test))
+            
+    def test_feature_selection_excludes_metadata_columns(self):
+        """Test that feature selection properly excludes metadata and target columns."""
+        preprocessor = RunInPreprocessor(features=None)  # Should auto-select features
+        
+        # Check that the _features attribute excludes metadata columns after fitting
+        preprocessor.fit(self.sample_data)
+        
+        expected_features = ['PressaoDescarga', 'PressaoSuccao', 'CorrenteRMS']
+        self.assertEqual(set(preprocessor._features), set(expected_features))
+        
+        # Ensure metadata columns are excluded
+        excluded_columns = ['Amaciado', 'Unidade', 'N_ensaio', 'Tempo']
+        for col in excluded_columns:
+            self.assertNotIn(col, preprocessor._features)
 
 
 if __name__ == '__main__':

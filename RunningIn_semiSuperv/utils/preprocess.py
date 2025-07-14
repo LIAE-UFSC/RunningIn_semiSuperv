@@ -1,4 +1,6 @@
 from delayedsw import DelayedSlidingWindow, MovingAverageTransformer
+from sklearn.model_selection import train_test_split
+from imblearn.under_sampling import RandomUnderSampler
 import pandas as pd
 import numpy as np
 
@@ -25,7 +27,9 @@ class RunInPreprocessor:
         feature_names_in_ (list): Names of input features from the fitted data.
     """
     
-    def __init__(self, window_size=1, delay=1, features=None, moving_average=1, t_min=0, t_max=np.inf, run_in_transition_min=5, run_in_transition_max=np.inf):
+    def __init__(self, window_size=1, delay=1, features=None, moving_average=1, t_min=0, t_max=np.inf, 
+                 run_in_transition_min=5, run_in_transition_max=np.inf,
+                 test_split=0.2, balance="none"):
         """
         Initialize the RunInPreprocessor with specified parameters.
         
@@ -41,6 +45,10 @@ class RunInPreprocessor:
                 transition labeling. Defaults to 5.
             run_in_transition_max (float, optional): Maximum time threshold for run-in
                 transition labeling. Defaults to np.inf.
+            test_split (float, list, optional): Proportion of data to use for testing. If list, it 
+                should be a list of strings containing names of units in the dataset. Defaults to 0.2.
+            balance (str, optional): Method for balancing classes. Options are "none" and "undersample".
+                "undersample" will reduce the majority class using random undersampling.
         """
 
         self.window_size = window_size
@@ -51,11 +59,13 @@ class RunInPreprocessor:
         self.t_max = t_max
         self.run_in_transition_min = run_in_transition_min
         self.run_in_transition_max = run_in_transition_max
-        self.X = pd.DataFrame()
-        self.y = pd.Series()
+        self.X_train = pd.DataFrame()
+        self.X_test = pd.DataFrame()
+        self.y_train = pd.Series()
+        self.y_test = pd.Series()
         self.feature_names_in_ = []
-
-        # TODO: initialize filter and windowing methods
+        self.test_split = test_split
+        self.balance = balance
 
     def set_filter_params(self, features=None, moving_average_window=1, t_min=0, t_max=np.inf, reset=True):
         """
@@ -68,7 +78,7 @@ class RunInPreprocessor:
                 Defaults to 1.
             t_min (float, optional): Minimum time threshold for data filtering. Defaults to 0.
             t_max (float, optional): Maximum time threshold for data filtering. Defaults to np.inf.
-            reset (bool, optional): Whether to reset stored data and feature names.
+            reset (bool, optional): Whether to reset the internal states of the preprocessor.
                 Defaults to True.
         """
 
@@ -79,8 +89,31 @@ class RunInPreprocessor:
 
         if reset:
             self.feature_names_in_ = []
-            self.X = pd.DataFrame()
-            self.y = pd.Series()
+            self.X_train = pd.DataFrame()
+            self.X_test = pd.DataFrame()
+            self.y_train = pd.Series()
+            self.y_test = pd.Series()
+
+    def set_test_split(self, test_split=0.2, reset=True):
+        """
+        Set the test split parameter for the preprocessor.
+        
+        Args:
+            test_split (float or list, optional): Proportion of data to use for testing.
+                If float, it specifies the proportion. If list, it should be a list of
+                strings containing names of units in the dataset. Defaults to 0.2.
+            reset (bool, optional): Whether to reset the internal states of the preprocessor.
+                Defaults to True.
+        """
+
+        self.test_split = test_split
+
+        if reset:
+            self.feature_names_in_ = []
+            self.X_train = pd.DataFrame()
+            self.X_test = pd.DataFrame()
+            self.y_train = pd.Series()
+            self.y_test = pd.Series()
 
     def set_window_params(self, window_size=1, delay=1, features=None, reset=True):
         """
@@ -93,7 +126,7 @@ class RunInPreprocessor:
                 Defaults to 1.
             features (list, optional): List of feature columns to transform. If None,
                 all columns will be used. Defaults to None.
-            reset (bool, optional): Whether to reset stored data and feature names.
+            reset (bool, optional): Whether to reset the internal states of the preprocessor.
                 Defaults to True.
         """
 
@@ -103,8 +136,10 @@ class RunInPreprocessor:
 
         if reset:
             self.feature_names_in_ = []
-            self.X = pd.DataFrame()
-            self.y = pd.Series()
+            self.X_train = pd.DataFrame()
+            self.X_test = pd.DataFrame()
+            self.y_train = pd.Series()
+            self.y_test = pd.Series()
 
     def set_label_params(self, run_in_transition_min=5, run_in_transition_max=np.inf, reset=True):
         """
@@ -117,7 +152,7 @@ class RunInPreprocessor:
             run_in_transition_max (float, optional): Maximum time threshold for run-in
                 transition labeling. Data after this time in the first test will be
                 labeled as run-in (1). Defaults to np.inf.
-            reset (bool, optional): Whether to reset stored data and feature names.
+            reset (bool, optional): Whether to reset the internal states of the preprocessor.
                 Defaults to True.
         """
 
@@ -126,8 +161,30 @@ class RunInPreprocessor:
 
         if reset:
             self.feature_names_in_ = []
-            self.X = pd.DataFrame()
-            self.y = pd.Series()
+            self.X_train = pd.DataFrame()
+            self.X_test = pd.DataFrame()
+            self.y_train = pd.Series()
+            self.y_test = pd.Series()
+
+    def set_balance_params(self, balance="none", reset=True):
+        """
+        Set the class balancing parameter for the preprocessor.
+        
+        Args:
+            balance (str, optional): Method for balancing classes. Options are "none" and 
+                "undersample". "undersample" will reduce the majority class using random 
+                undersampling. Defaults to "none".
+            reset (bool, optional): Whether to reset the internal states of the preprocessor.
+                Defaults to True.
+        """
+        self.balance = balance
+
+        if reset:
+            self.feature_names_in_ = []
+            self.X_train = pd.DataFrame()
+            self.X_test = pd.DataFrame()
+            self.y_train = pd.Series()
+            self.y_test = pd.Series()
 
     def fit(self, data: pd.DataFrame):
         """
@@ -146,7 +203,9 @@ class RunInPreprocessor:
         """
 
         if self.features is None:
-            self._features = data.columns.tolist()
+            # Exclude target and metadata columns from feature transformation
+            exclude_columns = ['Amaciado', 'Unidade', 'N_ensaio', 'Tempo']
+            self._features = [col for col in data.columns.tolist() if col not in exclude_columns]
         else:
             self._features = self.features
 
@@ -173,7 +232,9 @@ class RunInPreprocessor:
         3. Sort data by group and time columns
         4. Apply moving average filtering
         5. Apply sliding window transformation
-        6. Remove NaN values and return processed features and labels
+        6. Remove NaN values
+        7. Split the data into training and testing sets
+        8. Balance classes if specified
         
         Args:
             data (pd.DataFrame): Input data to transform. Must contain the same
@@ -220,10 +281,71 @@ class RunInPreprocessor:
         # Split X and y again after preprocessing
         X, y = self._splitXY(data)
 
-        self.X = X
-        self.y = y
+        # Split the data into training and testing sets
+        self._train_test_split(X, y)
 
-        return X, y
+        # Balance classes if specified
+        self.balance_classes()
+
+        return self.get_full_data()  # Return preprocessed X and y
+
+    def get_train_test_data(self):
+        """
+        Get the training and testing data after preprocessing.
+        
+        This method returns the preprocessed training and testing feature matrices
+        and target labels. It is useful for accessing the data after calling fit_transform.
+        
+        Returns:
+            tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]: A tuple containing:
+                - X_train (pd.DataFrame): Training feature matrix
+                - y_train (pd.Series): Training target labels
+                - X_test (pd.DataFrame): Testing feature matrix
+                - y_test (pd.Series): Testing target labels
+        """
+        return self.X_train, self.y_train, self.X_test, self.y_test
+    
+    def get_train_data(self):
+        """
+        Get the preprocessed data after fitting.
+        
+        This method returns the processed feature matrix and target labels.
+        It is useful for accessing the data after calling fit_transform.
+        
+        Returns:
+            tuple[pd.DataFrame, pd.Series]: A tuple containing:
+                - X (pd.DataFrame): Processed feature matrix
+                - y (pd.Series): Target labels for run-in detection
+        """
+        return self.X_train, self.y_train
+    
+    def get_test_data(self):
+        """
+        Get the preprocessed test data after fitting.
+        
+        This method returns the processed feature matrix and target labels for the test set.
+        It is useful for accessing the test data after calling fit_transform.
+        
+        Returns:
+            tuple[pd.DataFrame, pd.Series]: A tuple containing:
+                - X_test (pd.DataFrame): Processed test feature matrix
+                - y_test (pd.Series): Test target labels for run-in detection
+        """
+        return self.X_test, self.y_test
+    
+    def get_full_data(self):
+        """
+        Get the full preprocessed data after fitting.
+        
+        This method returns the complete processed feature matrix and target labels,
+        including both training and testing data.
+        
+        Returns:
+            tuple[pd.DataFrame, pd.Series]: A tuple containing:
+                - X (pd.DataFrame): Complete processed feature matrix
+                - y (pd.Series): Complete target labels for run-in detection
+        """
+        return pd.concat([self.X_train, self.X_test]), pd.concat([self.y_train, self.y_test])
 
     def fit_transform(self, data):
         """
@@ -248,7 +370,8 @@ class RunInPreprocessor:
         Split the data into features (X) and target (y).
         
         This private method separates the 'Amaciado' column as the target variable
-        and uses all other columns as features.
+        and uses all other columns as features, preserving metadata columns that
+        are needed by DelayedSlidingWindow for ordering and grouping.
         
         Args:
             data (pd.DataFrame): Input data containing both features and target.
@@ -260,9 +383,94 @@ class RunInPreprocessor:
         """
         
         y = data.loc[:,'Amaciado']
-        X = data.drop(['Amaciado'], axis= 1 )
+        X = data.drop(['Amaciado'], axis= 1)
         return X, y
+    
+    def _train_test_split(self, X, y):
+        """
+        Split the data into training and testing sets based on the test_split parameter.
+        
+        This private method handles both float and list inputs for test_split:
+        - If float, it splits the data into training and testing sets based on the proportion.
+        - If list, it filters the data to include only specified units for testing.
+        
+        Args:
+            X (pd.DataFrame): Feature matrix.
+            y (pd.Series): Target labels.
+            
+        Returns:
+            tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]: A tuple containing:
+                - X_train (pd.DataFrame): Training feature matrix
+                - y_train (pd.Series): Training target labels
+                - X_test (pd.DataFrame): Testing feature matrix
+                - y_test (pd.Series): Testing target labels
+        """
+        if isinstance(self.test_split, float):
+            # Randomly split data into train and test sets
+            # Use stratification only if there are sufficient samples in each class
+            try:
+                self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+                    X, y, test_size=self.test_split, random_state=42, stratify=y
+                )
+            except ValueError:
+                # Fall back to random split without stratification if stratify fails
+                # (e.g., when some classes have very few samples)
+                self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+                    X, y, test_size=self.test_split, random_state=42
+                )
+        elif isinstance(self.test_split, list):
+            # Filter data to include only specified units for testing
+            test_units = self.test_split
+            test_mask = X['Unidade'].isin(test_units)
+            self.X_test = X[test_mask]
+            self.y_test = y[test_mask]
+            self.X_train = X[~test_mask]
+            self.y_train = y[~test_mask]
+        else:
+            raise ValueError("test_split must be a float or a list of unit names.")
+        
+    def balance_classes(self):
+        """
+        Balance the classes of training data.
+        
+        If self.balance is "undersample", this private method reduces the majority
+        class using random undersampling to balance the dataset.
 
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        if self.balance == "undersample":
+            # Use RandomUnderSampler to balance classes
+            # Separate known and unknown samples
+            known_mask = self.y_train != -1
+            unknown_mask = self.y_train == -1
+            
+            X_known = self.X_train.loc[known_mask]
+            y_known = self.y_train.loc[known_mask]
+            X_unknown = self.X_train.loc[unknown_mask]
+            y_unknown = self.y_train.loc[unknown_mask]
+
+            # Only balance if there are known samples and multiple classes
+            if len(X_known) > 0 and len(y_known.unique()) > 1:
+                rus = RandomUnderSampler(random_state=42)
+                X_known_balanced, y_known_balanced = rus.fit_resample(X_known, y_known)
+                
+                # Convert back to DataFrames/Series with proper indexing
+                X_known = pd.DataFrame(X_known_balanced, columns=self.X_train.columns)
+                y_known = pd.Series(y_known_balanced)
+
+            # Reset indices and concatenate balanced known samples with all unknown samples
+            X_known = X_known.reset_index(drop=True)
+            y_known = y_known.reset_index(drop=True)
+            X_unknown = X_unknown.reset_index(drop=True)
+            y_unknown = y_unknown.reset_index(drop=True)
+            
+            self.X_train = pd.concat([X_known, X_unknown], ignore_index=True)
+            self.y_train = pd.concat([y_known, y_unknown], ignore_index=True)
+            
     def _filter_time(self, data):
         """
         Filter data based on time constraints.

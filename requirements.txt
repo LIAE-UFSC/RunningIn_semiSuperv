@@ -4,3 +4,4 @@ pandas
 scikit_learn >=1.6.1
 pytest
 delayedsw @ git+https://github.com/ThalerG/delayedsw@main
+imbalanced-learn
