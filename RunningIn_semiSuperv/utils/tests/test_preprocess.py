@@ -344,15 +344,6 @@ class TestRunInPreprocessor(unittest.TestCase):
         if len(transition_region) > 0:
             self.assertTrue(all(transition_region['Amaciado'] == -1))
     
-    def test_fit_transform_not_implemented(self):
-        """Test that fit_transform is not implemented yet."""
-        preprocessor = RunInPreprocessor()
-        
-        result = preprocessor.fit_transform(self.sample_data)
-        
-        # Currently returns None as it's not implemented
-        self.assertIsNone(result)
-    
     def test_edge_case_empty_dataframe(self):
         """Test behavior with empty DataFrame."""
         preprocessor = RunInPreprocessor()
