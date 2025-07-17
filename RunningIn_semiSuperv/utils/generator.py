@@ -231,12 +231,18 @@ class RunInSemiSupervised:
 
     def _set_data_loader_params(self, dict_folder=None, compressor_model=None, features=None):
         """
-        Set parameters for the data loader.
+        Configure parameters for the data loader component.
+        
+        Updates data loading parameters and creates a new RunInDataLoader instance
+        with the current configuration. This method allows dynamic reconfiguration
+        of data loading settings after initialization.
         
         Args:
-            dict_folder (str): Path to the folder containing data.
-            model (str): Model type to be used.
-            features (list): List of feature names to be used.
+            dict_folder (list, optional): Custom list of dictionaries defining unit
+                names and their associated test file paths.
+            compressor_model (str, optional): Model type for selecting predefined
+                units ("all", "a", or "b").
+            features (list, optional): List of feature column names to load.
         """
         if dict_folder is not None:
             self.dict_folder = dict_folder
@@ -336,12 +342,19 @@ class RunInSemiSupervised:
     
     def _set_model_params(self, classifier=None, classifier_params=None, semisupervised_params=None):
         """
-        Set parameters for the semi-supervised model.
+        Configure parameters for the semi-supervised model component.
+        
+        Updates model parameters and creates a new RunInSemiSupervisedModel instance
+        with the current configuration. This method allows dynamic reconfiguration
+        of model settings after initialization.
         
         Args:
-            classifier (str): Classifier type to be used.
-            classifier_params (dict): Parameters for the classifier.
-            semisupervised_params (dict): Parameters for the semi-supervised model.
+            classifier (str, optional): Base classifier type (e.g., "LogisticRegression",
+                "RandomForestClassifier", "KNeighborsClassifier").
+            classifier_params (dict, optional): Additional parameters for the base
+                classifier constructor.
+            semisupervised_params (dict, optional): Parameters for the SelfTrainingClassifier
+                wrapper (e.g., threshold, max_iter, criterion).
         """
         
         if classifier is not None:
@@ -358,11 +371,39 @@ class RunInSemiSupervised:
         )
     
     def _generate_transformers(self):
+        """
+        Initialize all pipeline components with current parameters.
+        
+        This private method configures the data loader, preprocessor, and model
+        components using the current instance parameters. It's called automatically
+        during initialization and can be called to reinitialize components after
+        parameter changes.
+        """
         self._set_data_loader_params()
         self._set_preprocessor_params()
         self._set_model_params()
 
     def fit(self, load_data: bool = True) -> 'RunInSemiSupervised':
+        """
+        Train the semi-supervised learning model.
+        
+        This method executes the complete training pipeline:
+        1. Load data (if requested)
+        2. Preprocess data (windowing, filtering, labeling)
+        3. Train the semi-supervised model
+        
+        Args:
+            load_data (bool, default=True): Whether to load data before training.
+                Set to False if data is already loaded to avoid reloading.
+        
+        Returns:
+            RunInSemiSupervised: Self reference for method chaining.
+            
+        Example:
+            >>> model = RunInSemiSupervised(model="a", features=['CorrenteRMS'])
+            >>> model.fit()  # Load data and train
+            >>> model.fit(load_data=False)  # Train without reloading data
+        """
 
         if load_data:
             # Load data
@@ -424,7 +465,33 @@ class RunInSemiSupervised:
     
     def cross_validate(self, n_splits = None) -> Any:
         """
-        TODO: write docstring
+        Perform cross-validation evaluation of the semi-supervised model.
+        
+        This method evaluates model performance using either unit-based cross-validation
+        (leave-one-unit-out) or stratified k-fold cross-validation. It provides detailed
+        metrics including confusion matrices, label distributions, and percentage of
+        pseudo-labeled samples.
+        
+        Args:
+            n_splits (int, optional): Number of cross-validation splits. If None,
+                uses unit-based cross-validation (leave-one-unit-out). If specified,
+                uses stratified k-fold cross-validation.
+        
+        Returns:
+            dict: Cross-validation results containing:
+                - 'percent_labeled': Percentage of pseudo-labeled samples per fold
+                - 'label_count_train_real': Real label distributions in training sets
+                - 'label_count_test_real': Real label distributions in test sets  
+                - 'label_count_test_predicted': Predicted label distributions in test sets
+                - 'confusion_matrix': Confusion matrices for each fold
+                
+        Example:
+            >>> model = RunInSemiSupervised(model="a", features=['CorrenteRMS'])
+            >>> model.fit()
+            >>> # Unit-based cross-validation
+            >>> results = model.cross_validate()
+            >>> # 5-fold stratified cross-validation
+            >>> results = model.cross_validate(n_splits=5)
         """
 
         if n_splits is None:
@@ -469,7 +536,18 @@ class RunInSemiSupervised:
 
     def test(self): # Test self-training on the test dataset
         """
-        TODO: write docstring
+        Evaluate the trained model on the test dataset.
+        
+        This method performs inference on the test set that was held out during
+        training. It's designed to evaluate the model's generalization performance
+        on unseen data.
+        
+        Note:
+            This method is currently a placeholder for future implementation.
+            It will be implemented to provide comprehensive test set evaluation
+            including metrics calculation and visualization.
+        
+        TODO: Implement test set evaluation functionality
         """
 
         pass
@@ -496,7 +574,11 @@ class RunInSemiSupervised:
     
     def _get_cv_n_splits(self) -> int:
         """
-        TODO: write docstrings
+        Get the number of cross-validation splits for unit-based validation.
+        
+        Returns:
+            int: Number of unique units in the training set, which determines
+                the number of folds for leave-one-unit-out cross-validation.
         """
 
         return len(self._preprocessor.meta_train['Unidade'].unique())

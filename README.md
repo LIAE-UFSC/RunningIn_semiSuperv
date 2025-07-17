@@ -1,6 +1,6 @@
 # RunningIn Semi-Supervised Learning
 
-A comprehensive Python package for semi-supervised learning applied to [running-in](https://en.wikipedia.org/wiki/Break-in_(mechanical_run-in)) detection in hermetic alternative compressors. This package provides end-to-end functionality for data loading, preprocessing, model training, and evaluation specifically designed for industrial compressor monitoring applications.
+A Python package for semi-supervised learning applied to [running-in](https://en.wikipedia.org/wiki/Break-in_(mechanical_run-in)) detection in hermetic alternative compressors. This package provides end-to-end functionality for data loading, preprocessing, model training, and evaluation specifically designed for industrial compressor monitoring applications.
 
 ## Features
 
@@ -24,11 +24,11 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```python
-from RunningIn_semiSuperv.utils.generator import RunInSemiSupervised
+from RunningIn_semiSuperv.utils import RunInSemiSupervised
 
 # Initialize with predefined A-series units (A2, A3, A4, A5)
 model = RunInSemiSupervised(
-    model='a',  # Use A-series units from LabeledData folder
+    compressor_model='a',  # Use A-series units from LabeledData folder
     features=['PressaoDescarga', 'PressaoSuccao', 'CorrenteRMS'],
     window_size=5,
     delay=2,
@@ -41,13 +41,17 @@ model = RunInSemiSupervised(
 # Train the model
 model.fit()
 
-# Make predictions
-predictions = model.predict(X_new)
-probabilities = model.predict_proba(X_new)
+# Get training and test data
+X_train, y_train = model.get_train_data()
+X_test, y_test = model.get_test_data()
 
-# Evaluate performance
-metrics = model.evaluate()
-print(f"Accuracy: {metrics['accuracy']:.3f}")
+# Make predictions
+predictions = model.predict(X_test)
+probabilities = model.predict_proba(X_test)
+
+# Perform cross-validation
+cv_results = model.cross_validate()
+print(f"Cross-validation results: {cv_results}")
 ```
 
 ### Advanced Configuration
@@ -128,33 +132,37 @@ The primary interface for the entire pipeline, providing:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `dict_folder` | list of dict | None | Custom unit/file structure (see below) |
-| `model` | str | None | Predefined unit selection ("all", "a", "b") |
+| `compressor_model` | str | None | Predefined unit selection ("all", "a", "b") |
 | `features` | list | None | Features to use (auto-detected if None) |
 | `window_size` | int | 1 | Sliding window size for time series |
 | `delay` | int | 1 | Delay parameter for windowing |
 | `moving_average` | int | 1 | Moving average window size |
 | `t_min` | float | 0 | Minimum time for filtering |
 | `t_max` | float | inf | Maximum time for filtering |
+| `run_in_transition_min` | float | 5 | Minimum time for run-in labeling |
+| `run_in_transition_max` | float | inf | Maximum time for run-in labeling |
 | `test_split` | float/list | 0.2 | Test split ratio or unit list |
 | `balance` | str | "none" | Class balancing method |
 | `classifier` | str | "LogisticRegression" | Base classifier type |
+| `classifier_params` | dict | None | Additional classifier parameters |
+| `semisupervised_params` | dict | None | Semi-supervised learning parameters |
 
 ### Data Source Configuration
 
 The package supports two ways to specify data sources:
 
-#### 1. Predefined Units (using `model` parameter)
+#### 1. Predefined Units (using `compressor_model` parameter)
 Uses CSV files from the `LabeledData/` directory with predefined unit configurations:
 
 ```python
 # Use all available units (A2, A3, A4, A5, B5, B7, B8, B10, B11, B12, B15)
-model = RunInSemiSupervised(model="all")
+model = RunInSemiSupervised(compressor_model="all")
 
 # Use only A-series units (A2, A3, A4, A5)
-model = RunInSemiSupervised(model="a")
+model = RunInSemiSupervised(compressor_model="a")
 
 # Use only B-series units (B5, B7, B8, B10, B11, B12, B15)
-model = RunInSemiSupervised(model="b")
+model = RunInSemiSupervised(compressor_model="b")
 ```
 
 #### 2. Custom File Structure (using `dict_folder` parameter)
@@ -188,8 +196,11 @@ Tempo,Feature0,Feature1...
 ### Required Columns
 
 - **Tempo**: Time values for ordering and filtering
-- **Amaciado**: Target variable (0=not run-in, 1=run-in, -1=unknown)
-- **Feature columns**: Sensor measurements (e.g., pressure, RMS current, kurtosis)
+- **Feature columns**: Sensor measurements (e.g., PressaoDescarga, PressaoSuccao, CorrenteRMS)
+
+### Target Variable (for training data)
+
+- **Amaciado**: Target variable (0=not run-in, 1=run-in) - automatically generated during preprocessing based on time thresholds and test numbers
 
 ### Automatically Added Columns
 
@@ -200,7 +211,7 @@ The data loader automatically adds these columns during loading:
 
 ### File Organization
 
-#### For Predefined Units (`model` parameter):
+#### For Predefined Units (`compressor_model` parameter):
 ```
 LabeledData/
 ├── A2_N_2019_07_09.csv    # A2 unit, test 0 (N = not run-in)
@@ -218,24 +229,27 @@ Files can be located anywhere as specified in the dict_folder structure.
 ### Core Methods
 
 - **`fit(load_data=True)`**: Train the complete pipeline
-- **`fit(load_data=False)`**: Train the model on previously loaded data
 - **`predict(X)`**: Make predictions on preprocessed data
 - **`transform_and_predict(X)`**: Preprocess and predict in one step
 - **`predict_proba(X)`**: Get prediction probabilities
-- **`evaluate()`**: Evaluate model on the test set 
+- **`cross_validate(n_splits=None)`**: Perform cross-validation evaluation
+- **`get_train_data()`**: Get training features and labels
+- **`get_test_data()`**: Get test features and labels
+- **`test()`**: Evaluate model on test set (placeholder for future implementation)
 
 ### Configuration Methods
 
-- **`_set_data_loader_params(dict_folder, model, features)`**: Configure data loading
+- **`_set_data_loader_params(dict_folder, compressor_model, features)`**: Configure data loading
 - **`_set_preprocessor_params(...)`**: Configure preprocessing parameters  
 - **`_set_model_params(classifier, classifier_params, semisupervised_params)`**: Configure model
 
-> **Note:** Changing configuration methods above may require reloading the data and/or refitting the model for changes to take effect.
+> **Note:** Configuration methods may require reloading data and/or refitting the model for changes to take effect.
 
-### Reprocessing data
+### Data Management Methods
 
-- **`_load_data()`**: Reloads data
-- **`_preprocess_data()`**: Preprocesses internal states of train and test data
+- **`_load_data(reset=True)`**: Load or reload data
+- **`_preprocess_data(data)`**: Preprocess loaded data
+- **`_generate_transformers()`**: Initialize all pipeline components
 
 ## Examples
 
@@ -244,12 +258,13 @@ Files can be located anywhere as specified in the dict_folder structure.
 ```python
 # Simple binary classification for run-in detection using predefined units
 model = RunInSemiSupervised(
-    model='a',  # Use A-series units (A2, A3, A4, A5)
+    compressor_model='a',  # Use A-series units (A2, A3, A4, A5)
     features=['PressaoDescarga', 'PressaoSuccao'],
     classifier="LogisticRegression"
 )
 
 model.fit()
+X_test, y_test = model.get_test_data()
 predictions = model.predict(X_test)
 ```
 
@@ -258,7 +273,7 @@ predictions = model.predict(X_test)
 ```python
 # Advanced time series preprocessing with B-series units
 model = RunInSemiSupervised(
-    model='b',  # Use B-series units
+    compressor_model='b',  # Use B-series units
     window_size=20,
     delay=10,
     moving_average=5,
@@ -266,6 +281,9 @@ model = RunInSemiSupervised(
     t_max=100.0,
     classifier="RandomForestClassifier"
 )
+
+model.fit()
+cv_results = model.cross_validate()
 ```
 
 ### Class Balancing
@@ -283,6 +301,30 @@ model = RunInSemiSupervised(
     test_split=['A4'],  # Use A4 for testing, A5 for training
     classifier="KNeighborsClassifier"
 )
+
+model.fit()
+results = model.cross_validate()  # Unit-based cross-validation
+```
+
+### Cross-Validation
+
+```python
+# Unit-based cross-validation (leave-one-unit-out)
+model = RunInSemiSupervised(
+    compressor_model='a',
+    features=['PressaoDescarga', 'CorrenteRMS'],
+    classifier="LogisticRegression"
+)
+
+model.fit()
+cv_results = model.cross_validate()  # Uses unit-based splits
+
+# Stratified k-fold cross-validation
+cv_results = model.cross_validate(n_splits=5)  # Uses stratified k-fold
+
+# Access results
+print(f"Percent labeled per fold: {cv_results['percent_labeled']}")
+print(f"Confusion matrices: {cv_results['confusion_matrix']}")
 ```
 
 ## Performance Considerations
