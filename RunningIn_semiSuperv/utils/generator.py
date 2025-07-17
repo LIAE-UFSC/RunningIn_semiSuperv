@@ -1,9 +1,11 @@
-from RunningIn_semiSuperv.utils.load import RunInDataLoader
-from RunningIn_semiSuperv.utils.preprocess import RunInPreprocessor
-from RunningIn_semiSuperv.utils.models import RunInSemiSupervisedModel
+from .load import RunInDataLoader
+from .preprocess import RunInPreprocessor
+from .models import RunInSemiSupervisedModel
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Union, Tuple, Any
+from typing import Dict, List, Optional, Union, Tuple, Any, Generator
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import StratifiedKFold
 
 class RunInSemiSupervised:
     """
@@ -180,7 +182,7 @@ class RunInSemiSupervised:
     """
     def __init__(self, 
                  dict_folder: Optional[List[Dict[str, Union[str, List[str]]]]] = None, 
-                 model: Optional[str] = None, 
+                 compressor_model: Optional[str] = None, 
                  features: Optional[List[str]] = None,
                  window_size: int = 1, 
                  delay: int = 1, 
@@ -210,7 +212,7 @@ class RunInSemiSupervised:
         and configure all pipeline components.
         """
         self.dict_folder = dict_folder
-        self.model = model
+        self.compressor_model = compressor_model
         self.features = features
         self.window_size = window_size
         self.delay = delay
@@ -227,7 +229,7 @@ class RunInSemiSupervised:
 
         self._generate_transformers()
 
-    def _set_data_loader_params(self, dict_folder=None, model=None, features=None):
+    def _set_data_loader_params(self, dict_folder=None, compressor_model=None, features=None):
         """
         Set parameters for the data loader.
         
@@ -238,18 +240,18 @@ class RunInSemiSupervised:
         """
         if dict_folder is not None:
             self.dict_folder = dict_folder
-        if model is not None:
-            self.model = model
+        if compressor_model is not None:
+            self.compressor_model = compressor_model
         if features is not None:
             self.features = features
 
-        self.data_loader = RunInDataLoader(
+        self._data_loader = RunInDataLoader(
             dict_folder=self.dict_folder,
-            model=self.model,
+            model=self.compressor_model,
             features=self.features
         )
 
-    def _load_data(self):
+    def _load_data(self, reset = True):
         """
         Load data using the RunInDataLoader.
         
@@ -257,8 +259,10 @@ class RunInSemiSupervised:
             pd.DataFrame: Loaded data.
         """
         
-        data_loader = RunInDataLoader(dict_folder=self.dict_folder, model=self.model, features=self.features)
-        return data_loader.load_data()
+        if reset:
+            self._data_loader = RunInDataLoader(dict_folder=self.dict_folder, model=self.compressor_model, features=self.features)
+
+        return self._data_loader.load_data()
 
     def _set_preprocessor_params(self, window_size=None, delay=None, moving_average=None,
                                     t_min=None, t_max=None, run_in_transition_min=None,
@@ -301,7 +305,9 @@ class RunInSemiSupervised:
         if balance is not None:
             self.balance = balance
 
-        self.preprocessor = RunInPreprocessor(
+        self.cross_validation_results = None
+
+        self._preprocessor = RunInPreprocessor(
             window_size=self.window_size,
             delay=self.delay,
             moving_average=self.moving_average,
@@ -323,10 +329,10 @@ class RunInSemiSupervised:
             pd.DataFrame: Preprocessed data.
         """
         
-        self.preprocessor.fit_transform(data)
+        self._preprocessor.fit_transform(data)
         
         # Return the preprocessed features and labels
-        return self.preprocessor.X_train, self.preprocessor.y_train
+        return self._preprocessor.X_train, self._preprocessor.y_train
     
     def _set_model_params(self, classifier=None, classifier_params=None, semisupervised_params=None):
         """
@@ -345,7 +351,7 @@ class RunInSemiSupervised:
         if semisupervised_params is not None:
             self.semisupervised_params = semisupervised_params
 
-        self.model = RunInSemiSupervisedModel(
+        self._model = RunInSemiSupervisedModel(
             classifier=self.classifier,
             classifier_args=self.classifier_params,
             **self.semisupervised_params
@@ -360,13 +366,13 @@ class RunInSemiSupervised:
 
         if load_data:
             # Load data
-            data = self.data_loader.load_data()
+            data = self._data_loader.load_data()
 
             # Preprocess data
-            self.preprocessor.fit_transform(data)
+            self._preprocessor.fit_transform(data)
 
         # Train model
-        self.model.fit(self.preprocessor.X_train, self.preprocessor.y_train)
+        self._model.fit(self._preprocessor.X_train, self._preprocessor.y_train)
         
         return self
 
@@ -381,10 +387,10 @@ class RunInSemiSupervised:
             np.ndarray: Predicted labels.
         """
         # Ensure X is preprocessed
-        X_transformed = self.preprocessor.transform(X)
+        X_transformed = self._preprocessor.transform(X)
         
         # Make predictions
-        return self.model.predict(X_transformed)
+        return self._model.predict(X_transformed)
     
     def predict(self, X: Any) -> Any:
         """
@@ -398,7 +404,7 @@ class RunInSemiSupervised:
         """
         
         # Make predictions
-        return self.model.predict(X)
+        return self._model.predict(X)
     
     def predict_proba(self, X: Any) -> Any:
         """
@@ -411,26 +417,103 @@ class RunInSemiSupervised:
             np.ndarray: Predicted probabilities for each class.
         """
         # Ensure X is preprocessed
-        X_transformed = self.preprocessor.transform(X)
+        X_transformed = self._preprocessor.transform(X)
         
         # Make probability predictions
-        return self.model.predict_proba(X_transformed)
+        return self._model.predict_proba(X_transformed)
     
-    def evaluate(self) -> Any:
+    def cross_validate(self, n_splits = None) -> Any:
         """
-        Evaluate the model on the test set.
+        TODO: write docstring
+        """
+
+        if n_splits is None:
+            iterator = enumerate(self._get_cv_perunit_index_train())
+            n_splits = self._get_cv_n_splits()
+        else:
+            iterator = enumerate(StratifiedKFold(n_splits=n_splits).split(self._preprocessor.X_train, self._preprocessor.y_train))
+        percent_labeled = np.empty(n_splits)
+        label_count_train_real = []
+        label_count_test_real = []
+        label_count_test_predicted = []
+        conf_mat = []
+
+        
+        
+        for fold, (train_idx, test_idx) in iterator:
+            X_train, y_train = self._preprocessor.X_train.iloc[train_idx], self._preprocessor.y_train.iloc[train_idx]
+            X_test, y_test = self._preprocessor.X_test.iloc[test_idx], self._preprocessor.y_test.iloc[test_idx]
+            
+            crossval_model = self._model
+
+            # Train model
+            crossval_model.fit(X_train, y_train)
+
+            label_count_train_real.append(np.unique(y_train, return_counts=True))
+            label_count_test_real.append(np.unique(y_test, return_counts=True))
+            ammount_labeled = np.unique(crossval_model.labeled_iter_, return_counts=True)[1][1]
+            percent_labeled[fold] = ammount_labeled/len(crossval_model.labeled_iter_)
+
+            y_pred = crossval_model.predict(X_test)
+            conf_mat.append(confusion_matrix(y_test, y_pred))
+            label_count_test_predicted.append(np.unique(y_pred, return_counts=True))
+
+        self.cross_validation_results = {
+            'percent_labeled': percent_labeled,
+            'label_count_train_real': label_count_train_real,
+            'label_count_test_real': label_count_test_real,
+            'label_count_test_predicted': label_count_test_predicted,
+            'confusion_matrix': conf_mat
+        }
+        return self.cross_validation_results
+
+    def test(self): # Test self-training on the test dataset
+        """
+        TODO: write docstring
+        """
+
+        pass
+    
+    def get_train_data(self) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        Get the training data used for fitting the model.
         
         Returns:
-            dict: Evaluation metrics.
+            Tuple[pd.DataFrame, pd.Series]: Training features and labels.
         """
         
-        # Get test data
-        X_test, y_test = self.preprocessor.get_test_data()
+        return self._preprocessor.X_train, self._preprocessor.y_train
+    
+    def get_test_data(self) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        Get the test data used for evaluation.
         
-        # Make predictions
-        y_pred = self.predict(X_test)
+        Returns:
+            Tuple[pd.DataFrame, pd.Series]: Test features and labels.
+        """
         
-        # Calculate evaluation metrics
-        metrics = self.model.evaluate(y_test, y_pred)
+        return self._preprocessor.X_test, self._preprocessor.y_test
+    
+    def _get_cv_n_splits(self) -> int:
+        """
+        TODO: write docstrings
+        """
+
+        return len(self._preprocessor.meta_train['Unidade'].unique())
+
+    def _get_cv_perunit_index_train(self) -> Generator[Tuple[np.ndarray, np.ndarray]]:
+        """
+        Generate cross-validation indices based on unit names for the training set.
         
-        return metrics
+        Returns:
+            Generator[Tuple[np.ndarray, np.ndarray]]: Generator of train-test index pairs.
+        """
+
+        meta = self._preprocessor.meta_train
+
+        unique_units = meta['Unidade'].unique()
+
+        for unit in unique_units:
+            train_idx = np.where(meta['Unidade'] != unit)[0]
+            test_idx = np.where(meta['Unidade'] == unit)[0]
+            yield (train_idx, test_idx)
