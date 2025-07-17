@@ -76,7 +76,12 @@ class RunInPreprocessor:
         self.test_split = test_split
         self.balance = balance
 
-    def set_filter_params(self, features=None, moving_average_window=1, t_min=0, t_max=np.inf, reset=True):
+    def set_filter_params(self, 
+                          features: Optional[List[str]] = None, 
+                          moving_average_window: int = 1, 
+                          t_min: float = 0, 
+                          t_max: float = np.inf, 
+                          reset: bool = True) -> None:
         """
         Set filtering parameters for the preprocessor.
         
@@ -103,7 +108,7 @@ class RunInPreprocessor:
             self.y_train = pd.Series()
             self.y_test = pd.Series()
 
-    def set_test_split(self, test_split=0.2, reset=True):
+    def set_test_split(self, test_split: Union[float, List[str]] = 0.2, reset: bool = True) -> None:
         """
         Set the test split parameter for the preprocessor.
         
@@ -228,8 +233,7 @@ class RunInPreprocessor:
         self.FilterTransformer = MovingAverageTransformer(window=self.moving_average, columns_to_transform=self._features)
         self.WindowTransformer = DelayedSlidingWindow(window_size=self.window_size, delay_space=self.delay,
                                               columns_to_transform=self._features,
-                                              split_by=['Unidade', 'N_ensaio'], order_by=['Tempo'],
-                                              include_order=True, include_split=True)
+                                              split_by=['Unidade', 'N_ensaio'], order_by=['Tempo'])
         
         return self
 
@@ -272,28 +276,37 @@ class RunInPreprocessor:
         # Label the data
         data = self.update_labels(data)
 
-        # Group by 'Unidade' and 'N_ensaio' and order by 'Tempo'
-        data = data.sort_values(by=group_columns + order_columns)
+        data = self.FilterTransformer.fit_transform(data)
+        self.WindowTransformer.fit(data)
+        data = self.WindowTransformer.transform(data)
 
-        # Split X and y
-        X, y = self._splitXY(data)
-
-        X = self.FilterTransformer.fit_transform(X)
-
-        X = self.WindowTransformer.fit_transform(X)
-
-        # Join X and y and drop NaN values
-        data = pd.concat([X, y], axis=1)
         data = data.dropna()
         data = data.reset_index(drop=True)
 
-        # TODO: refactor code in order to avoid splitting X and y again after preprocessing
+        # Drop all columns which are not in the feature list
+        data_columns = data.columns.tolist()
 
-        # Split X and y again after preprocessing
+        
+        # Keep only columns that start with any of the names in self._features, plus metadata columns
+        metacolumns = ['Unidade', 'N_ensaio', 'Tempo', 'Amaciado']
+        metaData = data[metacolumns]
+
+        feature_cols = []
+        for feat in self._features:
+            feature_cols.extend([col for col in data_columns if col.startswith(feat)])
+        cols_to_keep = list(set(feature_cols + ['Amaciado']))
+        data = data[[col for col in data_columns if col in cols_to_keep]]
+
+        
+        
+        # Split X and y
         X, y = self._splitXY(data)
 
         # Split the data into training and testing sets
         self._train_test_split(X, y)
+
+        self.meta_train = metaData[~self.test_index]
+        self.meta_test = metaData[self.test_index]
 
         # Balance classes if specified
         self.balance_classes()
@@ -425,18 +438,19 @@ class RunInPreprocessor:
                 )
             except ValueError:
                 # Fall back to random split without stratification if stratify fails
-                # (e.g., when some classes have very few samples)
                 self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
                     X, y, test_size=self.test_split, random_state=42
                 )
+            # Store test indexes as a boolean mask over the original X
+            self.test_index = X.index.isin(self.X_test.index)
         elif isinstance(self.test_split, list):
             # Filter data to include only specified units for testing
             test_units = self.test_split
-            test_mask = X['Unidade'].isin(test_units)
-            self.X_test = X[test_mask]
-            self.y_test = y[test_mask]
-            self.X_train = X[~test_mask]
-            self.y_train = y[~test_mask]
+            self.test_index = X['Unidade'].isin(test_units)
+            self.X_test = X[self.test_index]
+            self.y_test = y[self.test_index]
+            self.X_train = X[~self.test_index]
+            self.y_train = y[~self.test_index]
         else:
             raise ValueError("test_split must be a float or a list of unit names.")
         
@@ -527,7 +541,7 @@ class RunInPreprocessor:
         if run_in_transition_max is not None:
             self.run_in_transition_max = run_in_transition_max
 
-        data.loc[:, 'Amaciado'] = -1  # Unknown label
+        data = data.assign(Amaciado = -1)  # Unknown label
         data.loc[(data.Tempo <= self.run_in_transition_min) & (data.N_ensaio == 0), 'Amaciado'] = 0 # Known not run-in at beginning of first test
         data.loc[(data.Tempo >= self.run_in_transition_max) & (data.N_ensaio == 0), 'Amaciado'] = 1 # Known run-in in first test
         data.loc[(data.N_ensaio > 0), 'Amaciado'] = 1  # Known run-in after first test
