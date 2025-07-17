@@ -1,37 +1,56 @@
 #Import bibliotecas
-import numpy as np
-from utils.load import loadBaseData
-from utils.preprocess import preprocessData
-from utils import models
-from sklearn.metrics import matthews_corrcoef
-from sklearn.preprocessing import StandardScaler
-from joblib import Parallel, delayed
-import itertools
-import os
+from utils import RunInSemiSupervised
+from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix,  ConfusionMatrixDisplay
+
+
 
 if __name__ == "__main__":
     # TODO: Implement example of single run of the semi-supervised model
 
-    # Choose the parameters
-
-    # Load the base data
-
-    # Preprocess the data:
-        # Label the data
-        # Remove unnecessary features
-        # Filter the data
-        # Apply sliding window
+    model = "a"
     
-    # Train the model
+    features = ['CorrenteRMS']
 
-    # Evaluate the model
+    sliding_window_size = 5
+    sliding_window_delay = 3
+    movingavg_window_size = 1
 
-    # Plot visualizations
+    classifier_type = "LogisticRegression"
 
-    pass
+    classifier_params = {}
+
+    semisupervised_params = {'threshold': 0.6,
+                            'criterion': 'threshold',
+                            'max_iter': 1000}
+
+    model = RunInSemiSupervised(compressor_model=model,
+                                features=features,
+                                window_size=sliding_window_size,
+                                delay=sliding_window_delay,
+                                moving_average= movingavg_window_size,
+                                balance="undersample",
+                                classifier=classifier_type,
+                                semisupervised_params=semisupervised_params,
+                                classifier_params=classifier_params)
     
+    model.fit()
 
-# Old code:
+    X_train, y_train = model.get_train_data()
+
+    y_pred = model.predict(X_train)
+    y_real = y_train
+
+    eval_y_real = y_real[y_real != -1]
+    eval_y_pred = y_pred[y_real != -1]
+
+    conf_mat = confusion_matrix(eval_y_real, eval_y_pred)
+
+    disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat)
+    disp.plot(cmap=plt.cm.Blues)
+    plt.show()
+
+# Old params:
 
 # #Variaveis globais
 # parallel = True
