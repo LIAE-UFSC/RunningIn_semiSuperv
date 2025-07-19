@@ -59,7 +59,8 @@ if __name__ == "__main__":
         balance="undersample",                    # Balance classes via undersampling
         classifier=classifier_type,               # Base classifier type
         semisupervised_params=semisupervised_params,  # Semi-supervised parameters
-        classifier_params=classifier_params       # Additional classifier parameters
+        classifier_params=classifier_params,       # Additional classifier parameters
+        scale = True,  # Enable feature scaling
     )
     
     # Train the model using semi-supervised learning

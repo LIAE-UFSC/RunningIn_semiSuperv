@@ -186,7 +186,8 @@ class RunInSemiSupervised:
                  features: Optional[List[str]] = None,
                  window_size: int = 1, 
                  delay: int = 1, 
-                 moving_average: int = 1, 
+                 moving_average: int = 1,
+                 scale: bool = True, 
                  t_min: float = 0, 
                  t_max: float = np.inf, 
                  run_in_transition_min: float = 5, 
@@ -226,6 +227,7 @@ class RunInSemiSupervised:
         self.classifier = classifier
         self.classifier_params = classifier_params if classifier_params is not None else {}
         self.semisupervised_params = semisupervised_params if semisupervised_params is not None else {}
+        self.scale = scale
 
         self._generate_transformers()
 
@@ -270,7 +272,7 @@ class RunInSemiSupervised:
 
         return self._data_loader.load_data()
 
-    def _set_preprocessor_params(self, window_size=None, delay=None, moving_average=None,
+    def _set_preprocessor_params(self, window_size=None, delay=None, moving_average=None, scale = None,
                                     t_min=None, t_max=None, run_in_transition_min=None,
                                     run_in_transition_max=None, test_split=None, balance=None):
         """
@@ -310,6 +312,8 @@ class RunInSemiSupervised:
             self.test_split = test_split
         if balance is not None:
             self.balance = balance
+        if scale is not None:
+            self.scale = scale
 
         self.cross_validation_results = None
 
@@ -317,6 +321,7 @@ class RunInSemiSupervised:
             window_size=self.window_size,
             delay=self.delay,
             moving_average=self.moving_average,
+            scale = self.scale,
             run_in_transition_min=self.run_in_transition_min,
             run_in_transition_max=self.run_in_transition_max,
             test_split=self.test_split,

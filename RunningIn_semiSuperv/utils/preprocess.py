@@ -1,6 +1,7 @@
 from delayedsw import DelayedSlidingWindow, MovingAverageTransformer
 from sklearn.model_selection import train_test_split
 from imblearn.under_sampling import RandomUnderSampler
+from sklearn.preprocessing import StandardScaler, FunctionTransformer
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Union, Any, Tuple
@@ -21,6 +22,7 @@ class RunInPreprocessor:
         moving_average (int): Window size for moving average filtering.
         t_min (float): Minimum time threshold for filtering data.
         t_max (float): Maximum time threshold for filtering data.
+        scale (bool): Whether to apply scaling to the features.
         run_in_transition_min (float): Minimum time for run-in transition labeling.
         run_in_transition_max (float): Maximum time for run-in transition labeling.
         X (pd.DataFrame): Processed feature matrix.
@@ -35,6 +37,7 @@ class RunInPreprocessor:
                  moving_average: int = 1, 
                  t_min: float = 0, 
                  t_max: float = np.inf, 
+                 scale: bool = False,
                  run_in_transition_min: float = 5, 
                  run_in_transition_max: float = np.inf,
                  test_split: Union[float, List[str]] = 0.2, 
@@ -50,7 +53,8 @@ class RunInPreprocessor:
             moving_average (int, optional): Window size for moving average filter. Defaults to 1.
             t_min (float, optional): Minimum time threshold for data filtering. Defaults to 0.
             t_max (float, optional): Maximum time threshold for data filtering. Defaults to np.inf.
-            run_in_transition_min (float, optional): Minimum time threshold for run-in 
+            scale (bool, optional): Whether to apply scaling to the features. Defaults to False.
+            run_in_transition_min (float, optional): Minimum time threshold for run-in
                 transition labeling. Defaults to 5.
             run_in_transition_max (float, optional): Maximum time threshold for run-in
                 transition labeling. Defaults to np.inf.
@@ -68,6 +72,7 @@ class RunInPreprocessor:
         self.t_max = t_max
         self.run_in_transition_min = run_in_transition_min
         self.run_in_transition_max = run_in_transition_max
+        self.scale = scale
         self.X = pd.DataFrame()
         self.y = pd.Series()
         self.index_train = []
@@ -228,7 +233,12 @@ class RunInPreprocessor:
         missing_features = [feat for feat in self._features if feat not in data.columns]
         if missing_features:
             raise ValueError(f"The following features are missing from the input data: {missing_features}")
-
+        
+        if self.scale:
+            # Initialize scaler if scaling is enabled
+            self._ScalerTransformer = StandardScaler()
+        else:
+            self._ScalerTransformer = FunctionTransformer() # No scaling, just a passthrough
         self._FilterTransformer = MovingAverageTransformer(window=self.moving_average, columns_to_transform=self._features)
         self._WindowTransformer = DelayedSlidingWindow(window_size=self.window_size, delay_space=self.delay,
                                               columns_to_transform=self._features,
@@ -275,6 +285,7 @@ class RunInPreprocessor:
         # Label the data
         data = self.update_labels(data)
 
+        data[self._features] = self._ScalerTransformer.fit_transform(data[self._features]) # Scale the features if scaling is enabled
         data = self._FilterTransformer.fit_transform(data)
         data = self._WindowTransformer.fit_transform(data.reset_index(drop=True)) # TODO: Remove reset_index after issue is resolved in delayedsw
 
