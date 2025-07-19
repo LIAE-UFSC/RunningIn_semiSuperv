@@ -332,7 +332,13 @@ class RunInPreprocessor:
                 - y_train (pd.Series): Training target labels
                 - X_test (pd.DataFrame): Testing feature matrix
                 - y_test (pd.Series): Testing target labels
+                
+        Raises:
+            ValueError: If the preprocessor has not been fitted yet.
         """
+        if self.X.empty or self.y.empty:
+            raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
+
         return self.X.iloc[self.train_index], self.y.iloc[self.train_index], self.X.iloc[self.test_index], self.y.iloc[self.test_index]
 
     def get_train_metadata(self) -> pd.DataFrame:
@@ -404,7 +410,12 @@ class RunInPreprocessor:
             tuple[pd.DataFrame, pd.Series]: A tuple containing:
                 - X (pd.DataFrame): Processed feature matrix
                 - y (pd.Series): Target labels for run-in detection
+                
+        Raises:
+            ValueError: If the preprocessor has not been fitted yet.
         """
+        if self.X.empty or self.y.empty:
+            raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
 
         return self.X.iloc[self.train_index], self.y.iloc[self.train_index]
     
@@ -420,7 +431,12 @@ class RunInPreprocessor:
             tuple[pd.DataFrame, pd.Series]: A tuple containing:
                 - X_train_balanced (pd.DataFrame): Balanced training feature matrix
                 - y_train_balanced (pd.Series): Balanced training target labels for run-in detection
+                
+        Raises:
+            ValueError: If the preprocessor has not been fitted yet.
         """
+        if self.X.empty or self.y.empty:
+            raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
 
         if self.balance == "none":
             # If no balancing is applied, return the original training data
@@ -442,7 +458,13 @@ class RunInPreprocessor:
             tuple[pd.DataFrame, pd.Series]: A tuple containing:
                 - X_test (pd.DataFrame): Processed test feature matrix
                 - y_test (pd.Series): Test target labels for run-in detection
+                
+        Raises:
+            ValueError: If the preprocessor has not been fitted yet.
         """
+        if self.X.empty or self.y.empty:
+            raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
+
         return self.X.iloc[self.test_index], self.y.iloc[self.test_index]
 
     def get_full_data(self) -> Tuple[pd.DataFrame, pd.Series]:
@@ -456,7 +478,12 @@ class RunInPreprocessor:
             tuple[pd.DataFrame, pd.Series]: A tuple containing:
                 - X (pd.DataFrame): Complete processed feature matrix
                 - y (pd.Series): Complete target labels for run-in detection
+                
+        Raises:
+            ValueError: If the preprocessor has not been fitted yet.
         """
+        if self.X.empty or self.y.empty:
+            raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
 
         indexes = np.concatenate((self.train_index, self.test_index))
         return (self.X.iloc[indexes], self.y.iloc[indexes])
