@@ -5,11 +5,11 @@ A Python package for semi-supervised learning applied to [running-in](https://en
 ## Features
 
 - **Complete Pipeline**: Integrated data loading, preprocessing, and semi-supervised modeling
-- **Advanced Preprocessing**: Time-series filtering, sliding window transformations, and moving averages
+- **Time Series Preprocessing**: Time-series filtering, sliding window transformations, and moving averages
 - **Flexible Data Splitting**: Support for both proportional and unit-based train/test splits
-- **Class Balancing**: Built-in support for handling imbalanced datasets
+- **Class Balancing**: Built-in support for handling imbalanced datasets with undersampling
 - **Multiple Classifiers**: Support for various sklearn classifiers with semi-supervised learning
-- **Comprehensive Evaluation**: Built-in model evaluation and performance metrics
+- **Cross-Validation**: Unit-based leave-one-out and stratified k-fold cross-validation
 
 ## Quick Start
 
@@ -20,6 +20,8 @@ git clone https://github.com/liae-labmetro/RunningIn_semiSuperv.git
 cd RunningIn_semiSuperv
 pip install -r requirements.txt
 ```
+
+> **Note**: The package includes a dependency on `delayedsw` which is installed directly from GitHub. Ensure you have git available in your environment.
 
 ### Basic Usage
 
@@ -33,6 +35,7 @@ model = RunInSemiSupervised(
     window_size=5,
     delay=2,
     moving_average=3,
+    scale=True,           # Apply StandardScaler (default)
     test_split=0.2,
     balance="undersample",
     classifier="LogisticRegression"
@@ -107,10 +110,11 @@ RunningIn_semiSuperv/
 │       ├── load.py                 # Data loading utilities
 │       ├── preprocess.py           # Data preprocessing pipeline
 │       ├── models.py               # Semi-supervised model wrapper
-│       └── tests/                  # Comprehensive test suite
-│           ├── test_preprocess.py
-│           ├── test_models.py
-│           └── test_dataLoader.py
+│       └── tests/                  # Comprehensive test suite (79 tests)
+│           ├── test_preprocess.py  # Preprocessing tests (32 tests)
+│           ├── test_models.py      # Model wrapper tests (10 tests)
+│           ├── test_dataLoader.py  # Data loading tests (18 tests)
+│           └── test_generator.py   # Main pipeline tests (19 tests)
 ├── requirements.txt                # Package dependencies
 └── README.md                       # This file
 ```
@@ -137,12 +141,13 @@ The primary interface for the entire pipeline, providing:
 | `window_size` | int | 1 | Sliding window size for time series |
 | `delay` | int | 1 | Delay parameter for windowing |
 | `moving_average` | int | 1 | Moving average window size |
+| `scale` | bool | True | Apply StandardScaler to features |
 | `t_min` | float | 0 | Minimum time for filtering |
 | `t_max` | float | inf | Maximum time for filtering |
 | `run_in_transition_min` | float | 5 | Minimum time for run-in labeling |
 | `run_in_transition_max` | float | inf | Maximum time for run-in labeling |
 | `test_split` | float/list | 0.2 | Test split ratio or unit list |
-| `balance` | str | "none" | Class balancing method |
+| `balance` | str | "none" | Class balancing method ("none", "undersample") |
 | `classifier` | str | "LogisticRegression" | Base classifier type |
 | `classifier_params` | dict | None | Additional classifier parameters |
 | `semisupervised_params` | dict | None | Semi-supervised learning parameters |
@@ -233,7 +238,7 @@ Files can be located anywhere as specified in the dict_folder structure.
 - **`transform_and_predict(X)`**: Preprocess and predict in one step
 - **`predict_proba(X)`**: Get prediction probabilities
 - **`cross_validate(n_splits=None)`**: Perform cross-validation evaluation
-- **`get_train_data()`**: Get training features and labels
+- **`get_train_data(balanced=True)`**: Get training features and labels
 - **`get_test_data()`**: Get test features and labels
 - **`test()`**: Evaluate model on test set (placeholder for future implementation)
 
@@ -336,13 +341,21 @@ print(f"Confusion matrices: {cv_results['confusion_matrix']}")
 
 ### Common Issues
 
-1. **Memory Errors**:
+1. **Installation Errors**:
+   - Issue: `delayedsw` installation fails
+   - Solution: Ensure git is installed and accessible from your environment
+
+2. **Memory Errors**:
    - Issue: Large datasets with extensive windowing
    - Solution: Reduce window_size or process data in batches
 
-2. **Poor Performance**:
+3. **Poor Performance**:
    - Issue: Imbalanced classes or inadequate features
    - Solution: Use class balancing and feature selection
+
+4. **Import Errors**:
+   - Issue: Cannot import RunInSemiSupervised
+   - Solution: Ensure you're in the correct directory and all dependencies are installed
 
 ## Contributing
 
@@ -354,11 +367,14 @@ print(f"Confusion matrices: {cv_results['confusion_matrix']}")
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests (79 tests total)
 pytest RunningIn_semiSuperv/utils/tests/
 
-# Run specific test file
-pytest RunningIn_semiSuperv/utils/tests/test_preprocess.py -v
+# Run specific test modules
+pytest RunningIn_semiSuperv/utils/tests/test_preprocess.py -v     # 32 tests
+pytest RunningIn_semiSuperv/utils/tests/test_models.py -v        # 10 tests
+pytest RunningIn_semiSuperv/utils/tests/test_dataLoader.py -v    # 18 tests
+pytest RunningIn_semiSuperv/utils/tests/test_generator.py -v     # 19 tests
 ```
 
 ## References
