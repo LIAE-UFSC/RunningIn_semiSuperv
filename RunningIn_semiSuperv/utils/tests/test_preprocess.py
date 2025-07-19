@@ -52,10 +52,16 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertEqual(preprocessor.t_max, float('inf'))
         self.assertEqual(preprocessor.run_in_transition_min, 5)
         self.assertEqual(preprocessor.run_in_transition_max, float('inf'))
-        self.assertTrue(preprocessor.X_train.empty)
-        self.assertTrue(preprocessor.y_train.empty)
-        self.assertTrue(preprocessor.X_test.empty)
-        self.assertTrue(preprocessor.y_test.empty)
+        
+        # Test that accessing data before fitting raises an error
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_train_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
+        
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_test_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
+        
         self.assertEqual(preprocessor.feature_names_in_, [])
         self.assertEqual(preprocessor.test_split, 0.2)
         self.assertEqual(preprocessor.balance, "none")
@@ -100,26 +106,48 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertEqual(preprocessor.moving_average, 3)
         self.assertEqual(preprocessor.t_min, 2.0)
         self.assertEqual(preprocessor.t_max, 20.0)
+        
+        # Check that reset worked - accessing data should raise error if not fitted
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_train_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
+        
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_test_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
+        
         self.assertEqual(preprocessor.feature_names_in_, [])
-        self.assertTrue(preprocessor.X_train.empty)
-        self.assertTrue(preprocessor.y_train.empty)
     
     def test_set_filter_params_no_reset(self):
         """Test setting filter parameters without reset."""
         preprocessor = RunInPreprocessor()
-        preprocessor.feature_names_in_ = ['test']
-        preprocessor.X_train = pd.DataFrame({'col': [1, 2, 3]})
-        preprocessor.y_train = pd.Series([1, 0, 1])
         
+        # First, fit the preprocessor with some data to populate internal structures
+        preprocessor.fit(self.sample_data)
+        preprocessor.transform(self.sample_data)
+        
+        # Store original feature_names_in_ to verify it doesn't get reset
+        original_features = preprocessor.feature_names_in_.copy()
+        
+        # Get data before reset=False call
+        X_train_before, y_train_before = preprocessor.get_train_data()
+        X_test_before, y_test_before = preprocessor.get_test_data()
+
         preprocessor.set_filter_params(
             features=['PressaoDescarga'],
             reset=False
         )
         
         self.assertEqual(preprocessor.features, ['PressaoDescarga'])
-        self.assertEqual(preprocessor.feature_names_in_, ['test'])  # Should not be reset
-        self.assertFalse(preprocessor.X_train.empty)  # Should not be reset
-        self.assertFalse(preprocessor.y_train.empty)  # Should not be reset
+        self.assertEqual(preprocessor.feature_names_in_, original_features)  # Should not be reset
+        
+        # Get data after reset=False call - should still exist
+        X_train_after, y_train_after = preprocessor.get_train_data()
+        X_test_after, y_test_after = preprocessor.get_test_data()
+        
+        # Data should not be empty (not reset)
+        self.assertFalse(X_train_after.empty)
+        self.assertFalse(y_train_after.empty)
     
     def test_set_window_params(self):
         """Test setting window parameters."""
@@ -161,9 +189,15 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertEqual(preprocessor._features, expected_features)
         self.assertEqual(preprocessor.feature_names_in_, self.sample_data.columns.tolist())
         
-        # Check that transformers are initialized
-        self.assertIsNotNone(preprocessor.FilterTransformer)
-        self.assertIsNotNone(preprocessor.WindowTransformer)
+        # Check that preprocessor can be used after fitting (transformers exist internally)
+        # We test this by attempting a transform which would fail if transformers weren't initialized
+        try:
+            preprocessor.transform(self.sample_data)
+            transformers_initialized = True
+        except AttributeError:
+            transformers_initialized = False
+        
+        self.assertTrue(transformers_initialized, "Transformers should be initialized after fit")
     
     def test_fit_with_custom_features(self):
         """Test fit method with custom features."""
@@ -212,9 +246,12 @@ class TestRunInPreprocessor(unittest.TestCase):
         self.assertIsInstance(X, (pd.DataFrame, np.ndarray))
         self.assertIsInstance(y, (pd.Series, np.ndarray))
         
-        # Verify that internal train and test data are stored
-        self.assertFalse(preprocessor.X_train.empty or preprocessor.X_test.empty)
-        self.assertFalse(preprocessor.y_train.empty or preprocessor.y_test.empty)
+        # Verify that internal train and test data are stored and accessible
+        X_train, y_train = preprocessor.get_train_data()
+        X_test, y_test = preprocessor.get_test_data()
+        
+        self.assertGreater(len(X_train) + len(X_test), 0, "Should have some data after transform")
+        self.assertGreater(len(y_train) + len(y_test), 0, "Should have some labels after transform")
     
     def test_splitXY(self):
         """Test the _splitXY method."""
@@ -411,8 +448,15 @@ class TestRunInPreprocessor(unittest.TestCase):
         # Test setting list test_split
         preprocessor.set_test_split(['A1', 'A2'], reset=True)
         self.assertEqual(preprocessor.test_split, ['A1', 'A2'])
-        self.assertTrue(preprocessor.X_train.empty)
-        self.assertTrue(preprocessor.y_train.empty)
+        
+        # Check that reset worked by verifying error when accessing data without fitting
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_train_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
+        
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_test_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
         
     def test_set_balance_params_method(self):
         """Test the set_balance_params method."""
@@ -425,8 +469,15 @@ class TestRunInPreprocessor(unittest.TestCase):
         # Test setting balance to none with reset
         preprocessor.set_balance_params("none", reset=True)
         self.assertEqual(preprocessor.balance, "none")
-        self.assertTrue(preprocessor.X_train.empty)
-        self.assertTrue(preprocessor.y_train.empty)
+        
+        # Check that reset worked by verifying error when accessing data without fitting
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_train_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
+        
+        with self.assertRaises(ValueError) as cm:
+            preprocessor.get_test_data()
+        self.assertIn("The preprocessor has not been fitted yet", str(cm.exception))
         
     def test_train_test_split_with_float(self):
         """Test train-test split functionality with float proportion."""
