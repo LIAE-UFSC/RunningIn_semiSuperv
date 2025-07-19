@@ -338,7 +338,7 @@ class RunInSemiSupervised:
         self._preprocessor.fit_transform(data)
         
         # Return the preprocessed features and labels
-        return self._preprocessor.X_train, self._preprocessor.y_train
+        return self._preprocessor.get_train_data()
     
     def _set_model_params(self, classifier=None, classifier_params=None, semisupervised_params=None):
         """
@@ -412,8 +412,10 @@ class RunInSemiSupervised:
             # Preprocess data
             self._preprocessor.fit_transform(data)
 
+        X_train, y_train = self.get_train_data()
+
         # Train model
-        self._model.fit(self._preprocessor.X_train, self._preprocessor.y_train)
+        self._model.fit(X_train, y_train)
         
         return self
 
@@ -494,35 +496,41 @@ class RunInSemiSupervised:
             >>> results = model.cross_validate(n_splits=5)
         """
 
+        X_train, y_train = self.get_train_data(balanced=False)
+
         if n_splits is None:
             iterator = enumerate(self._get_cv_perunit_index_train())
             n_splits = self._get_cv_n_splits()
         else:
-            iterator = enumerate(StratifiedKFold(n_splits=n_splits).split(self._preprocessor.X_train, self._preprocessor.y_train))
+            iterator = enumerate(StratifiedKFold(n_splits=n_splits).split(X_train, y_train))
         percent_labeled = np.empty(n_splits)
         label_count_train_real = []
         label_count_test_real = []
         label_count_test_predicted = []
         conf_mat = []
 
-        
-        
         for fold, (train_idx, test_idx) in iterator:
-            X_train, y_train = self._preprocessor.X_train.iloc[train_idx], self._preprocessor.y_train.iloc[train_idx]
-            X_test, y_test = self._preprocessor.X_test.iloc[test_idx], self._preprocessor.y_test.iloc[test_idx]
-            
+            X_train_fold, y_train_fold = X_train.iloc[train_idx], y_train.iloc[train_idx]
+            X_test_fold, y_test_fold = X_train.iloc[test_idx], y_train.iloc[test_idx]
+
+            # Balance training data if specified
+            if self.balance == "undersample":
+                X_train_fold, y_train_fold = self._preprocessor.balance_dataset(X_train_fold, y = y_train_fold)
+
             crossval_model = self._model
 
             # Train model
-            crossval_model.fit(X_train, y_train)
+            crossval_model.fit(X_train_fold, y_train_fold)
 
-            label_count_train_real.append(np.unique(y_train, return_counts=True))
-            label_count_test_real.append(np.unique(y_test, return_counts=True))
-            ammount_labeled = np.unique(crossval_model.labeled_iter_, return_counts=True)[1][1]
+            label_count_train_real.append(np.unique(y_train_fold, return_counts=True))
+            label_count_test_real.append(np.unique(y_test_fold, return_counts=True))
+            ammount_labeled = np.sum(crossval_model.labeled_iter_ == 1)
             percent_labeled[fold] = ammount_labeled/len(crossval_model.labeled_iter_)
 
-            y_pred = crossval_model.predict(X_test)
-            conf_mat.append(confusion_matrix(y_test, y_pred))
+            y_pred = crossval_model.predict(X_test_fold)
+            # Get mask of known labels in y_test
+            known_mask = y_test_fold != -1
+            conf_mat.append(confusion_matrix(y_test_fold[known_mask], y_pred[known_mask]))
             label_count_test_predicted.append(np.unique(y_pred, return_counts=True))
 
         self.cross_validation_results = {
@@ -552,15 +560,20 @@ class RunInSemiSupervised:
 
         pass
     
-    def get_train_data(self) -> Tuple[pd.DataFrame, pd.Series]:
+    def get_train_data(self, balanced: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Get the training data used for fitting the model.
         
         Returns:
             Tuple[pd.DataFrame, pd.Series]: Training features and labels.
         """
-        
-        return self._preprocessor.X_train, self._preprocessor.y_train
+
+        if balanced:
+            # If balanced is True, return balanced training data
+            return self._preprocessor.get_balanced_train_data()
+        else:
+            # If balanced is False, return unbalanced training data
+            return self._preprocessor.get_train_data()
     
     def get_test_data(self) -> Tuple[pd.DataFrame, pd.Series]:
         """
@@ -570,7 +583,7 @@ class RunInSemiSupervised:
             Tuple[pd.DataFrame, pd.Series]: Test features and labels.
         """
         
-        return self._preprocessor.X_test, self._preprocessor.y_test
+        return self._preprocessor.get_test_data()
     
     def _get_cv_n_splits(self) -> int:
         """
@@ -581,7 +594,9 @@ class RunInSemiSupervised:
                 the number of folds for leave-one-unit-out cross-validation.
         """
 
-        return len(self._preprocessor.meta_train['Unidade'].unique())
+        meta_train = self._preprocessor.get_train_metadata()
+
+        return len(meta_train['Unidade'].unique())
 
     def _get_cv_perunit_index_train(self) -> Generator[Tuple[np.ndarray, np.ndarray]]:
         """
@@ -591,7 +606,7 @@ class RunInSemiSupervised:
             Generator[Tuple[np.ndarray, np.ndarray]]: Generator of train-test index pairs.
         """
 
-        meta = self._preprocessor.meta_train
+        meta = self._preprocessor.get_train_metadata()
 
         unique_units = meta['Unidade'].unique()
 

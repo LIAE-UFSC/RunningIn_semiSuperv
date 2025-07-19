@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # Time series windowing parameters
     sliding_window_size = 5      # Number of time steps in each window
     sliding_window_delay = 3     # Delay between window observations
-    movingavg_window_size = 1    # Moving average window size (1 = no smoothing)
+    movingavg_window_size = 2    # Moving average window size (1 = no smoothing)
     
     # Machine learning configuration
     classifier_type = "LogisticRegression"  # Base classifier for semi-supervised learning
@@ -82,6 +82,8 @@ if __name__ == "__main__":
     # Only evaluate on samples with known labels (0 or 1)
     eval_y_real = y_real[y_real != -1]
     eval_y_pred = y_pred[y_real != -1]
+
+    print(model.cross_validate())
     
     # =============================================================================
     # RESULTS VISUALIZATION
