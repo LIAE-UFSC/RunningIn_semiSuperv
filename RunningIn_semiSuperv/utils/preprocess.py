@@ -555,7 +555,7 @@ class RunInPreprocessor:
         elif isinstance(self.test_split, list):
             # Filter data to include only specified units for testing
             test_units = self.test_split
-            test_index = X['Unidade'].isin(test_units)
+            test_index = self.metadata['Unidade'].isin(test_units)
         else:
             raise ValueError("test_split must be a float or a list of unit names.")
 
