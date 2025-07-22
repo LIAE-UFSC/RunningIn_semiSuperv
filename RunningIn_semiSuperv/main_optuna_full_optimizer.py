@@ -155,9 +155,11 @@ class OptimizationRunIn():
             'scale': trial.suggest_categorical('scale', [True, False]),
             'balance': trial.suggest_categorical('balance', ['undersample', 'none'])
         }
-
-        max_delay = (max_init_samples - (self.parameters['moving_average'] - 1))// (self.parameters['window_size'] - 1)
-        self.parameters["delay"] = trial.suggest_int('delay', 1, max_delay)
+        if self.parameters["window_size"] == 1: # Delay does not make sense for window size 1
+            self.parameters["delay"] = 1
+        else:
+            max_delay = (max_init_samples - (self.parameters['moving_average'] - 1))// (self.parameters['window_size'] - 1)
+            self.parameters["delay"] = trial.suggest_int('delay', 1, max_delay)
 
         self.select_classifier(trial = trial)
         threshold = trial.suggest_float('threshold', 0.05, 0.99)
@@ -330,9 +332,10 @@ if __name__ == "__main__":
             n_studies_process = round(N_studies_left / n_processes)
 
             for i in range(n_processes):  # Number of optimization trials
-                N_studies_left -= n_studies_process
                 if i == n_processes - 1: # Last process takes remaining trials
                     n_studies_process = N_studies_left
+                else:
+                    N_studies_left -= n_studies_process
                 p = mp.Process(target=study.optimize, args=(optimizer.objective,), kwargs={'n_trials': n_studies_process, 'n_jobs': 1})
                 p.start()
                 processes.append(p)
