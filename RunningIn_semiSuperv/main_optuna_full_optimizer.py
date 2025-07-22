@@ -15,9 +15,10 @@ import os
 warnings.filterwarnings("ignore", category=UserWarning)
 
 compressor_model = "a"
-n_processes = 3
-n_tests = 500
+n_processes = 4
+n_tests = 1000
 max_init_samples = 180  # Maximum total window size for optimization (moving_average - 1 + (window_size - 1) * delay)
+auto_broadcast = False
 
 def MCC_score_from_confusion_matrix(cm):
     """
@@ -240,12 +241,12 @@ def start_optuna_dashboard(storage_name, port=8080):
         subprocess.Popen: Dashboard process object
     """
     try:
-        print(f"Starting Optuna dashboard at http://localhost:{port}")
+        print(f"Starting Optuna dashboard at http://127.0.0.1:{port}")
         
         # Handle different operating systems for process group creation
         if os.name == 'nt':  # Windows
             dashboard_process = subprocess.Popen(
-                ["optuna-dashboard", storage_name, "--port", str(port)],
+                ["optuna-dashboard", storage_name, "--host 0.0.0.0 --port", str(port), ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
@@ -314,16 +315,21 @@ if __name__ == "__main__":
             results_dir = Path(__file__).resolve().parent.parent / "Results"
             results_dir.mkdir(exist_ok=True)
             storage_name = f"sqlite:///{results_dir.as_posix()}/RunIn_{classifier_type}.db"
+
+            ae_storage = optuna.storages.RDBStorage(url=storage_name, engine_kwargs={"connect_args": {"timeout": 100}})
             
             # Create Optuna study
             study = optuna.create_study(directions=["maximize", "maximize"], 
                                         study_name=study_name, 
                                         storage=storage_name, 
                                         load_if_exists=True)
-        
-            # Start Optuna dashboard
-            dashboard_port = 8080
-            dashboard_process = start_optuna_dashboard(storage_name, port=dashboard_port)
+            
+            if auto_broadcast:        
+                # Start Optuna dashboard
+                dashboard_port = 8081
+                dashboard_process = start_optuna_dashboard(storage_name, port=dashboard_port)
+            else:
+                dashboard_process = None
             
             start_time = time.time()
 
