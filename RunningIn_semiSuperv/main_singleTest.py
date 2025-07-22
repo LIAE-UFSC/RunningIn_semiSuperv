@@ -8,14 +8,15 @@ model, and evaluates performance with a confusion matrix visualization.
 The script focuses on a single test configuration rather than extensive parameter
 sweeps, making it suitable for quick testing and development.
 
-Author: [Your Name]
-Date: [Current Date]
+Author: Gabriel Thaler
+Date: 19/07/2025
 """
 
 # Import required libraries
 from utils import RunInSemiSupervised
 from matplotlib import pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import numpy as np
 
 if __name__ == "__main__":
     
@@ -84,7 +85,10 @@ if __name__ == "__main__":
     eval_y_real = y_real[y_real != -1]
     eval_y_pred = y_pred[y_real != -1]
 
-    print(model.cross_validate())
+    result = model.cross_validate()
+
+    joined_confusion_matrix = np.array(result["confusion_matrix"]).sum(axis=0)
+
     
     # =============================================================================
     # RESULTS VISUALIZATION
@@ -93,16 +97,28 @@ if __name__ == "__main__":
     # Generate confusion matrix
     conf_mat = confusion_matrix(eval_y_real, eval_y_pred)
     
-    # Create and display confusion matrix plot
-    disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat)
-    disp.plot(cmap='Blues')
-    plt.title("Running-In Detection - Confusion Matrix")
+    # Create side-by-side confusion matrix plots: Cross-validation sum and Test set
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    # Cross-validation confusion matrix (summed)
+    disp_cv = ConfusionMatrixDisplay(confusion_matrix=joined_confusion_matrix)
+    disp_cv.plot(ax=axes[0], cmap='Blues', colorbar=False)
+    axes[0].set_title("Cross-Validation (Sum)")
+
+    # Test set confusion matrix
+    disp_test = ConfusionMatrixDisplay(confusion_matrix=conf_mat)
+    disp_test.plot(ax=axes[1], cmap='Blues', colorbar=False)
+    axes[1].set_title("Test Set")
+
+    plt.suptitle("Running-In Detection - Confusion Matrices")
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
-    
+
     # Print evaluation metrics
     print(f"\nEvaluation Results:")
     print(f"Total samples evaluated: {len(eval_y_real)}")
-    print(f"Confusion Matrix:\n{conf_mat}")
+    print(f"Test Confusion Matrix:\n{conf_mat}")
+    print(f"Cross-Validation (Sum) Confusion Matrix:\n{joined_confusion_matrix}")
 
 # =============================================================================
 # LEGACY CONFIGURATION (COMMENTED OUT)

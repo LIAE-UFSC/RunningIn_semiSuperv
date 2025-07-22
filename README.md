@@ -19,9 +19,18 @@ A Python package for semi-supervised learning applied to [running-in](https://en
 git clone https://github.com/liae-labmetro/RunningIn_semiSuperv.git
 cd RunningIn_semiSuperv
 pip install -r requirements.txt
+
+# For hyperparameter optimization with dashboard (optional)
+pip install optuna-dashboard
 ```
 
 > **Note**: The package includes a dependency on `delayedsw` which is installed directly from GitHub. Ensure you have git available in your environment.
+
+#### Installation Requirements
+
+- **Python**: 3.6 or higher
+- **Git**: Required for `delayedsw` dependency
+- **optuna-dashboard**: Optional, for real-time optimization monitoring
 
 ### Basic Usage
 
@@ -103,7 +112,8 @@ model = RunInSemiSupervised(
 RunningIn_semiSuperv/
 ├── RunningIn_semiSuperv/
 │   ├── __init__.py
-│   ├── main_singleTest.py          # Example script
+│   ├── main_singleTest.py          # Basic usage example script
+│   ├── main_optuna_full_optimizer.py  # Hyperparameter optimization script
 │   └── utils/
 │       ├── __init__.py
 │       ├── generator.py            # Main RunInSemiSupervised class
@@ -115,6 +125,10 @@ RunningIn_semiSuperv/
 │           ├── test_models.py      # Model wrapper tests (10 tests)
 │           ├── test_dataLoader.py  # Data loading tests (18 tests)
 │           └── test_generator.py   # Main pipeline tests (19 tests)
+├── Results/                        # Optimization results (auto-created)
+│   ├── RunIn_LogisticRegression.db # Optuna study database
+│   ├── RunIn_RandomForest.db       # Individual classifier results
+│   └── ...                        # One database per classifier
 ├── requirements.txt                # Package dependencies
 └── README.md                       # This file
 ```
@@ -331,6 +345,147 @@ cv_results = model.cross_validate(n_splits=5)  # Uses stratified k-fold
 print(f"Percent labeled per fold: {cv_results['percent_labeled']}")
 print(f"Confusion matrices: {cv_results['confusion_matrix']}")
 ```
+
+## Hyperparameter Optimization
+
+The package includes an advanced hyperparameter optimization script using [Optuna](https://optuna.org/) for automated parameter tuning across multiple classifiers. This feature enables systematic exploration of the hyperparameter space to find optimal configurations for your specific dataset.
+
+### Optimization Script
+
+The `main_optuna_full_optimizer.py` script provides comprehensive hyperparameter optimization with the following features:
+
+- **Multi-Objective Optimization**: Simultaneously optimizes Matthews Correlation Coefficient (MCC) and labeled data percentage
+- **Multiple Classifiers**: Supports 9 different classifiers with tailored parameter ranges
+- **Real-time Monitoring**: Integrated Optuna dashboard for live optimization tracking
+- **Parallel Execution**: Multi-process optimization for faster results
+- **Error Handling**: Automatic cleanup of processes and subprocesses on errors
+
+### Supported Classifiers
+
+The optimization script natively supports the following classifiers with optimized parameter ranges:
+
+1. **LogisticRegression**: C parameter (1e-4 to 1e2)
+2. **DecisionTreeClassifier**: max_depth, min_samples_split, min_samples_leaf, max_features
+3. **KNeighborsClassifier**: n_neighbors, weights, metric, p parameter
+4. **LinearSVM**: C parameter (1e-5 to 1e3)
+5. **RBFSVM**: C and gamma parameters
+6. **RandomForest**: n_estimators, max_depth, min_samples_split, min_samples_leaf, max_features, bootstrap
+7. **NeuralNet (MLPClassifier)**: hidden_layer_sizes, activation, alpha, learning_rate
+8. **AdaBoost**: n_estimators, learning_rate
+9. **NaiveBayes**: var_smoothing
+10. **QDA**: reg_param, store_covariance
+
+### Usage
+
+#### Basic Optimization
+
+```bash
+# Run optimization for all supported classifiers
+python RunningIn_semiSuperv/main_optuna_full_optimizer.py
+```
+
+#### Configuration
+
+Edit the script parameters at the top of the file:
+
+```python
+compressor_model = "a"  # Choose from "a", "b", or "all"
+n_processes = 3         # Number of parallel processes
+n_tests = 500          # Number of optimization trials per classifier
+max_init_samples = 180 # Maximum total window size constraint
+```
+
+#### Optimization Parameters
+
+The script optimizes the following hyperparameters:
+
+| Parameter | Range | Description |
+|-----------|-------|-------------|
+| `window_size` | 1-150 | Sliding window size |
+| `moving_average` | 1-30 | Moving average window |
+| `delay` | 1-max_delay | Delay parameter (dynamically calculated) |
+| `scale` | True/False | Feature scaling |
+| `balance` | undersample/none | Class balancing method |
+| `threshold` | 0.05-0.99 | Semi-supervised threshold |
+| `features` | 26 options | Individual feature selection |
+| `classifier_params` | varies | Classifier-specific parameters |
+
+### Optuna Dashboard
+
+The optimization script automatically starts an interactive dashboard for real-time monitoring of the optimization process.
+
+#### Accessing the Dashboard
+
+1. **Automatic Launch**: The dashboard starts automatically when running the optimization script
+2. **Default URL**: `http://localhost:8080` (port increments for multiple classifiers)
+3. **Manual Access**: If needed, you can start the dashboard manually:
+
+```bash
+# Install dashboard (if not already installed)
+pip install optuna-dashboard
+
+# Start dashboard manually
+optuna-dashboard sqlite:///Results/RunIn_<<classifier_name>>.db --port 8080
+```
+
+#### Dashboard Features
+
+- **Study Overview**: Real-time progress tracking across all trials
+- **Pareto Front Visualization**: Multi-objective optimization results
+- **Parameter Importance**: Identify which parameters matter most
+- **Optimization History**: Track optimization progress over time
+- **Trial Details**: Detailed information about each trial
+- **Parallel Coordinate Plot**: Visualize parameter relationships
+
+#### Dashboard Screenshots and Navigation
+
+1. **Study List**: Overview of all optimization studies
+2. **Study Detail**: Individual study progress and results
+3. **Pareto Front**: Multi-objective optimization visualization
+4. **Parameter Importance**: Feature importance analysis
+5. **Optimization History**: Trial-by-trial progress tracking
+
+### Results Storage
+
+Optimization results are automatically saved to SQLite databases:
+
+```
+Results/
+├── RunIn_LogisticRegression.db
+├── RunIn_DecisionTreeClassifier.db
+├── RunIn_KNeighborsClassifier.db
+├── RunIn_LinearSVM.db
+├── RunIn_RBFSVM.db
+├── RunIn_RandomForest.db
+├── RunIn_NeuralNet.db
+├── RunIn_AdaBoost.db
+├── RunIn_NaiveBayes.db
+└── RunIn_QDA.db
+```
+
+### Performance Tips
+
+1. **Parallel Processing**: Increase `n_processes` for faster optimization (consider your CPU cores)
+2. **Trial Budget**: Start with fewer trials (`n_tests=50`) for quick exploration, then increase for final optimization
+3. **Dashboard Monitoring**: Use the dashboard to identify promising parameter regions early
+4. **Resource Management**: The script automatically handles process cleanup on errors or interruption
+
+### Troubleshooting Optimization
+
+#### Common Issues
+
+1. **Dashboard Not Starting**:
+   ```bash
+   # Install dashboard package
+   pip install optuna-dashboard
+   ```
+
+2. **Port Already in Use**:
+   - Manually specify a different port
+
+3. **Memory Issues**:
+   - Reduce `n_processes` or `n_tests`
+   - Lower `max_init_samples` constraint
 
 ## Performance Considerations
 
