@@ -1,13 +1,18 @@
 from sklearn import semi_supervised
-from sklearn import svm
-from sklearn.neighbors import (NeighborhoodComponentsAnalysis, KNeighborsClassifier)
-from sklearn.linear_model import SGDClassifier, LogisticRegression
-from sklearn import tree
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic, ExpSineSquared
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.cross_decomposition import PLSCanonical
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.gaussian_process import GaussianProcessRegressor
 from typing import Dict, List, Optional, Union, Any
 
 class RunInSemiSupervisedModel(semi_supervised.SelfTrainingClassifier):
@@ -113,28 +118,62 @@ class RunInSemiSupervisedModel(semi_supervised.SelfTrainingClassifier):
             - "GaussianProcessRegressor": Gaussian Process Regressor
         """
 
+        supported_classifiers = [
+            "LogisticRegression",
+            "SGDClassifier",
+            "DecisionTreeClassifier",
+            "PLSCanonical",
+            "KNeighborsClassifier",
+            "LinearSVM",
+            "RBFSVM",
+            "GaussianProcess",
+            "RandomForest",
+            "NeuralNet",
+            "AdaBoost",
+            "NaiveBayes",
+            "QDA",
+        ]
+
         # Classifier can be either a string or a class
         if isinstance(classifier, str):
             if classifier == "LogisticRegression":
-                return LogisticRegression(**kwargs)
-            elif classifier == "KNeighborsClassifier":
-                return KNeighborsClassifier(**kwargs)
-            elif classifier == "SGDClassifier":
-                return SGDClassifier(**kwargs)
+                return LogisticRegression(random_state = 42, **kwargs)
             elif classifier == "DecisionTreeClassifier":
-                return tree.DecisionTreeClassifier(**kwargs)
+                return DecisionTreeClassifier(random_state = 42, **kwargs)
             elif classifier == "PLSCanonical":
                 return PLSCanonical(**kwargs)
-            elif classifier == "GaussianNB":
+            elif classifier == "KNeighborsClassifier":
+                return KNeighborsClassifier(**kwargs)
+            elif classifier == "LinearSVM":
+                return SVC(random_state = 42, kernel='linear', probability=True, **kwargs)
+            elif classifier == "RBFSVM":
+                return SVC(random_state = 42, kernel=RBF(), probability=True, **kwargs)
+            elif classifier == "GaussianProcess":
+                kernel = kwargs.pop('kernel', "RBF")
+                if kernel == "RBF":
+                    return GaussianProcessClassifier(kernel=RBF(), random_state=42, **kwargs)
+                elif kernel == "Matern":
+                    return GaussianProcessClassifier(kernel=Matern(), random_state=42, **kwargs)
+                elif kernel == "RationalQuadratic":
+                    return GaussianProcessClassifier(kernel=RationalQuadratic(), random_state=42, **kwargs)
+                elif kernel == "ExpSineSquared":
+                    return GaussianProcessClassifier(kernel=ExpSineSquared(), random_state=42, **kwargs)
+                else:
+                    raise ValueError(f"Unsupported Gaussian Process kernel: {kernel}. "
+                                     f"Supported kernels are: RBF, Matern, RationalQuadratic, ExpSineSquared.")
+            elif classifier == "RandomForest":
+                return RandomForestClassifier(random_state = 42, **kwargs)
+            elif classifier == "NeuralNet":
+                return MLPClassifier(random_state = 42, **kwargs)
+            elif classifier == "AdaBoost":
+                return AdaBoostClassifier(random_state = 42, **kwargs)
+            elif classifier == "NaiveBayes":
                 return GaussianNB(**kwargs)
-            elif classifier == "MLPClassifier":
-                return MLPClassifier(**kwargs)
-            elif classifier == "RandomForestClassifier":
-                return RandomForestClassifier(**kwargs)
-            elif classifier == "GaussianProcessRegressor":
-                return GaussianProcessRegressor(**kwargs)
+            elif classifier == "QDA":
+                return QuadraticDiscriminantAnalysis(**kwargs)
             else:
-                raise ValueError(f"Unknown classifier: {classifier}")
+                raise ValueError(f"Classifier '{classifier}' is not supported. "
+                                 f"Supported classifiers are: {', '.join(supported_classifiers)}")
         elif isinstance(classifier, type):
             # If classifier is a class, instantiate it with the provided arguments
             return classifier(**kwargs)
