@@ -239,12 +239,22 @@ def start_optuna_dashboard(storage_name, port=8080):
     """
     try:
         print(f"Starting Optuna dashboard at http://localhost:{port}")
-        dashboard_process = subprocess.Popen(
-            ["optuna-dashboard", storage_name, "--port", str(port)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            preexec_fn=os.setsid  # Create new process group for easier termination
-        )
+        
+        # Handle different operating systems for process group creation
+        if os.name == 'nt':  # Windows
+            dashboard_process = subprocess.Popen(
+                ["optuna-dashboard", storage_name, "--port", str(port)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        else:  # Unix-like systems (Linux, macOS)
+            dashboard_process = subprocess.Popen(
+                ["optuna-dashboard", storage_name, "--port", str(port)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                preexec_fn=os.setsid  # Create new process group for easier termination
+            )
         return dashboard_process
     except FileNotFoundError:
         print("Warning: optuna-dashboard not found. Please install with: pip install optuna-dashboard")
@@ -263,14 +273,24 @@ def stop_optuna_dashboard(dashboard_process):
     """
     if dashboard_process is not None:
         try:
-            # Send SIGTERM to the process group
-            os.killpg(os.getpgid(dashboard_process.pid), signal.SIGTERM)
-            dashboard_process.wait(timeout=5)  # Wait up to 5 seconds for graceful shutdown
-            print("Optuna dashboard stopped successfully")
+            if os.name == 'nt':  # Windows
+                # On Windows, terminate the process directly
+                dashboard_process.terminate()
+                dashboard_process.wait(timeout=5)  # Wait up to 5 seconds for graceful shutdown
+                print("Optuna dashboard stopped successfully")
+            else:  # Unix-like systems (Linux, macOS)
+                # Send SIGTERM to the process group
+                os.killpg(os.getpgid(dashboard_process.pid), signal.SIGTERM)
+                dashboard_process.wait(timeout=5)  # Wait up to 5 seconds for graceful shutdown
+                print("Optuna dashboard stopped successfully")
         except subprocess.TimeoutExpired:
             # Force kill if graceful shutdown failed
-            os.killpg(os.getpgid(dashboard_process.pid), signal.SIGKILL)
-            print("Optuna dashboard force killed")
+            if os.name == 'nt':  # Windows
+                dashboard_process.kill()
+                print("Optuna dashboard force killed")
+            else:  # Unix-like systems
+                os.killpg(os.getpgid(dashboard_process.pid), signal.SIGKILL)
+                print("Optuna dashboard force killed")
         except Exception as e:
             print(f"Warning: Could not stop dashboard process: {e}")
 
