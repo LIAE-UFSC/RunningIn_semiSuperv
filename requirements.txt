@@ -3,5 +3,8 @@ numpy
 pandas
 scikit_learn >=1.6.1
 pytest
+psycopg2-binary
+optuna
+optuna-dashboard
 delayedsw @ git+https://github.com/ThalerG/delayedsw@main
 imbalanced-learn
