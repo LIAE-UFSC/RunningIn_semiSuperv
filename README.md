@@ -31,6 +31,7 @@ pip install optuna-dashboard
 - **Python**: 3.6 or higher
 - **Git**: Required for `delayedsw` dependency
 - **optuna-dashboard**: Optional, for real-time optimization monitoring
+- **PostgreSQL**: Optional, for advanced database storage (see PostgreSQL setup in Hyperparameter Optimization section)
 
 ### Basic Usage
 
@@ -447,8 +448,9 @@ optuna-dashboard sqlite:///Results/RunIn_<<classifier_name>>.db --port 8080
 
 ### Results Storage
 
-Optimization results are automatically saved to SQLite databases:
+Optimization results are automatically saved to databases. The script supports both SQLite (default) and PostgreSQL for storing optimization results.
 
+#### SQLite Storage (Default)
 ```
 Results/
 ├── RunIn_LogisticRegression.db
@@ -461,6 +463,91 @@ Results/
 ├── RunIn_AdaBoost.db
 ├── RunIn_NaiveBayes.db
 └── RunIn_QDA.db
+```
+
+#### PostgreSQL Storage (Advanced)
+
+For large-scale optimizations or team collaboration, PostgreSQL provides better performance and concurrent access.
+
+**Configuration:**
+```python
+# In main_optuna_full_optimizer.py
+USE_POSTGRES = True  # Set to True to use PostgreSQL
+POSTGRES_CONFIG = {
+    'host': 'localhost',
+    'port': 5432,
+    'database': 'optuna_db',
+    'user': 'optuna_user',
+    'password': 'optuna_password'
+}
+```
+
+**Setup Instructions:**
+
+1. **Install PostgreSQL Server**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install postgresql postgresql-contrib
+   
+   # macOS (with Homebrew)
+   brew install postgresql
+   
+   # Windows: Download from https://www.postgresql.org/download/
+   ```
+
+2. **Install Python PostgreSQL Adapter**
+   ```bash
+   pip install psycopg2-binary
+   # OR if you have compilation issues:
+   pip install psycopg2
+   ```
+
+3. **Create Database and User**
+   ```bash
+   # Connect to PostgreSQL as superuser
+   sudo -u postgres psql
+   # OR on Windows/some systems:
+   psql -U postgres
+   ```
+   
+   ```sql
+   -- Create database
+   CREATE DATABASE optuna_db;
+   
+   -- Create user with password
+   CREATE USER optuna_user WITH PASSWORD 'optuna_password';
+   
+   -- Grant permissions
+   GRANT ALL PRIVILEGES ON DATABASE optuna_db TO optuna_user;
+   
+   -- Connect to the database
+   \c optuna_db
+   
+   -- Grant schema permissions
+   GRANT ALL ON SCHEMA public TO optuna_user;
+   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO optuna_user;
+   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO optuna_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO optuna_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO optuna_user;
+   
+   -- Exit
+   \q
+   ```
+
+4. **Update Configuration**
+   Update the `POSTGRES_CONFIG` dictionary in `main_optuna_full_optimizer.py` with your actual credentials.
+
+**Benefits of PostgreSQL:**
+- **Better Performance**: Superior handling of concurrent access and large datasets
+- **Team Collaboration**: Multiple users can access the same optimization studies
+- **Data Persistence**: More reliable for long-running optimizations
+- **Network Access**: Can run database on a separate server
+- **Advanced Features**: Better query capabilities and data analysis tools
+
+**Dashboard Access with PostgreSQL:**
+```bash
+# Manual dashboard startup with PostgreSQL
+optuna-dashboard postgresql://optuna_user:optuna_password@localhost:5432/optuna_db --port 8080
 ```
 
 ### Performance Tips
@@ -486,6 +573,61 @@ Results/
 3. **Memory Issues**:
    - Reduce `n_processes` or `n_tests`
    - Lower `max_init_samples` constraint
+
+#### PostgreSQL Issues
+
+1. **"Failed to import DB access module"**:
+   ```bash
+   # Install PostgreSQL adapter
+   pip install psycopg2-binary
+   ```
+
+2. **"password authentication failed"**:
+   - Check username and password in `POSTGRES_CONFIG`
+   - Verify user exists: `psql -U postgres -c "\du"`
+   - Create user if needed (see PostgreSQL setup above)
+
+3. **"permission denied for schema public"**:
+   ```bash
+   # Connect as superuser
+   psql -U postgres -d optuna_db
+   ```
+   ```sql
+   -- Grant permissions
+   GRANT ALL ON SCHEMA public TO optuna_user;
+   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO optuna_user;
+   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO optuna_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO optuna_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO optuna_user;
+   ```
+
+4. **"connection refused"**:
+   ```bash
+   # Check if PostgreSQL is running
+   sudo systemctl status postgresql  # Linux
+   brew services list | grep postgres  # macOS
+   # On Windows: Check Services manager
+   
+   # Start PostgreSQL if needed
+   sudo systemctl start postgresql  # Linux
+   brew services start postgresql  # macOS
+   ```
+
+5. **Using Existing PostgreSQL Installation**:
+   - Update `POSTGRES_CONFIG` with your existing credentials
+   - Common defaults: user=`postgres`, database=`postgres`
+   - Check your PostgreSQL installation documentation for credentials
+
+**Quick PostgreSQL Test:**
+```bash
+# Test connection with your credentials
+psql -h localhost -p 5432 -U optuna_user -d optuna_db
+
+# If successful, you should see:
+# psql (version)
+# Type "help" for help.
+# optuna_db=>
+```
 
 ## Performance Considerations
 
