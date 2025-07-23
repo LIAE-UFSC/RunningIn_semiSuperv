@@ -1,3 +1,38 @@
+"""
+Optuna Hyperparameter Optimization for RunIn Semi-Supervised Learning
+
+Database Configuration:
+1. SQLite (default): Set USE_POSTGRES = False
+   - No additional setup required
+   - Files saved to Results/ directory
+
+2. PostgreSQL: Set USE_POSTGRES = True
+   - Requires PostgreSQL server setup
+   - Install dependencies: pip install psycopg2-binary
+   - Update POSTGRES_CONFIG with your database credentials
+   
+PostgreSQL Setup:
+1. Install PostgreSQL server
+2. Install Python PostgreSQL adapter:
+   ```bash
+   pip install psycopg2-binary
+   # OR if you have compilation issues:
+   pip install psycopg2
+   ```
+3. Create database and user:
+   ```sql
+   CREATE DATABASE optuna_db;
+   CREATE USER optuna_user WITH PASSWORD 'optuna_password';
+   GRANT ALL PRIVILEGES ON DATABASE optuna_db TO optuna_user;
+   ```
+4. Update POSTGRES_CONFIG dictionary below
+
+Common Issues:
+- "Failed to import DB access module": Install psycopg2-binary
+- Connection refused: Check PostgreSQL server is running
+- Authentication failed: Verify username/password in POSTGRES_CONFIG
+"""
+
 from utils import RunInSemiSupervised
 import logging
 import optuna
@@ -20,6 +55,16 @@ n_tests = 1000
 max_init_samples = 180  # Maximum total window size for optimization (moving_average - 1 + (window_size - 1) * delay)
 auto_broadcast = False
 
+# Database configuration
+USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
+POSTGRES_CONFIG = {
+    'host': 'localhost',
+    'port': 5432,
+    'database': 'optuna_db',
+    'user': 'optuna_user',
+    'password': 'optuna_password'
+}
+
 def MCC_score_from_confusion_matrix(cm):
     """
     Calculate Matthews Correlation Coefficient (MCC) from confusion matrix.
@@ -34,6 +79,37 @@ def MCC_score_from_confusion_matrix(cm):
     numerator = (tp * tn) - (fp * fn)
     denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
     return numerator / denominator if denominator != 0 else 0
+
+def get_database_url(classifier_type):
+    """
+    Get the database URL for either SQLite or PostgreSQL.
+    
+    Args:
+        classifier_type (str): Name of the classifier
+    
+    Returns:
+        str: Database URL string
+    """
+    if USE_POSTGRES:
+        # Check if psycopg2 is available
+        try:
+            import psycopg2
+        except ImportError:
+            raise ImportError(
+                "PostgreSQL support requires psycopg2. Install it with:\n"
+                "pip install psycopg2-binary\n"
+                "Or set USE_POSTGRES = False to use SQLite instead."
+            )
+        
+        # PostgreSQL URL format
+        return (f"postgresql://{POSTGRES_CONFIG['user']}:{POSTGRES_CONFIG['password']}"
+                f"@{POSTGRES_CONFIG['host']}:{POSTGRES_CONFIG['port']}"
+                f"/{POSTGRES_CONFIG['database']}")
+    else:
+        # SQLite URL format
+        results_dir = Path(__file__).resolve().parent.parent / "Results"
+        results_dir.mkdir(exist_ok=True)
+        return f"sqlite:///{results_dir.as_posix()}/RunIn_{classifier_type}.db"
 
 class OptimizationRunIn():
 
@@ -310,19 +386,50 @@ if __name__ == "__main__":
             # Create an instance of the optimization class
             optimizer = OptimizationRunIn(classifier=classifier_type, compressor_model=compressor_model)
             
-            # Create Optuna study
-            study_name = f"RunIn_{classifier_type}_{compressor_model}"  # Unique
-            results_dir = Path(__file__).resolve().parent.parent / "Results"
-            results_dir.mkdir(exist_ok=True)
-            storage_name = f"sqlite:///{results_dir.as_posix()}/RunIn_{classifier_type}.db"
-
-            ae_storage = optuna.storages.RDBStorage(url=storage_name, engine_kwargs={"connect_args": {"timeout": 100}})
+            # Get database URL (SQLite or PostgreSQL)
+            storage_name = get_database_url(classifier_type)
+            
+            # Create Optuna study name
+            study_name = f"RunIn_{classifier_type}_{compressor_model}"
+            
+            # Configure storage with timeout settings
+            try:
+                if USE_POSTGRES:
+                    # PostgreSQL storage with connection pooling and timeout
+                    storage = optuna.storages.RDBStorage(
+                        url=storage_name,
+                        engine_kwargs={
+                            "pool_size": 20,
+                            "max_overflow": 0,
+                            "pool_pre_ping": True,
+                            "pool_recycle": 300,
+                            "connect_args": {"connect_timeout": 60}
+                        }
+                    )
+                else:
+                    # SQLite storage with timeout
+                    storage = optuna.storages.RDBStorage(
+                        url=storage_name, 
+                        engine_kwargs={"connect_args": {"timeout": 100}}
+                    )
+            except Exception as e:
+                if "Failed to import DB access module" in str(e):
+                    raise ImportError(
+                        f"Database connection failed for {classifier_type}. "
+                        f"If using PostgreSQL, install psycopg2-binary:\n"
+                        f"pip install psycopg2-binary\n"
+                        f"Original error: {e}"
+                    )
+                else:
+                    raise e
             
             # Create Optuna study
-            study = optuna.create_study(directions=["maximize", "maximize"], 
-                                        study_name=study_name, 
-                                        storage=storage_name, 
-                                        load_if_exists=True)
+            study = optuna.create_study(
+                directions=["maximize", "maximize"], 
+                study_name=study_name, 
+                storage=storage, 
+                load_if_exists=True
+            )
             
             if auto_broadcast:        
                 # Start Optuna dashboard
