@@ -440,7 +440,7 @@ class RunInPreprocessor:
 
         return X_train, Y_train
 
-    def get_balanced_train_data(self) -> Tuple[pd.DataFrame, pd.Series]:
+    def get_balanced_train_data(self, apply_PCA: bool = None) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Get the balanced training data after fitting.
         
@@ -459,6 +459,9 @@ class RunInPreprocessor:
         if self.X.empty or self.y.empty:
             raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
 
+        if apply_PCA is None:
+            apply_PCA = self.pca > 0
+
         if self.balance == "none":
             # If no balancing is applied, return the original training data
             return self.get_train_data()
@@ -466,7 +469,11 @@ class RunInPreprocessor:
         elif self.index_train_balanced is None or len(self.index_train_balanced) == 0:
             raise ValueError("No balanced training data available. Please call balance_classes() first.")
         elif self.balance == "undersample":
-            return self.X.iloc[self.index_train_balanced], self.y[self.index_train_balanced]
+            if apply_PCA:
+                X_train_balanced = pd.DataFrame(self._PCATransformer.fit_transform(self.X.iloc[self.index_train_balanced]))
+            else:
+                X_train_balanced = self.X.iloc[self.index_train_balanced]
+            return X_train_balanced, self.y[self.index_train_balanced]
 
     def get_test_data(self, apply_PCA: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
         """
