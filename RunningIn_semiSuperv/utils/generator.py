@@ -6,7 +6,7 @@ import numpy as np
 from typing import Dict, List, Optional, Union, Tuple, Any, Generator
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import StratifiedKFold
-
+from sklearn.decomposition import PCA
 class RunInSemiSupervised:
     """
     Complete pipeline for semi-supervised learning applied to running-in detection 
@@ -84,6 +84,12 @@ class RunInSemiSupervised:
         - "none": No balancing applied
         - "undersample": Random undersampling of majority class
         
+    pca : int, default=0
+        Number of principal components for PCA dimensionality reduction. If 0 (default),
+        no PCA is applied. If > 0, applies PCA with the specified number of components
+        after windowing and scaling but before model training. Useful for reducing
+        dimensionality and potentially improving model performance.
+        
     classifier : str, default="LogisticRegression"
         Base classifier for semi-supervised learning. Supported options include:
         "LogisticRegression", "RandomForestClassifier", "KNeighborsClassifier",
@@ -144,6 +150,7 @@ class RunInSemiSupervised:
     ...     window_size=10,
     ...     delay=5,
     ...     moving_average=3,
+    ...     pca=5,  # Apply PCA with 5 components
     ...     test_split=['CustomA'],  # Use CustomA for testing
     ...     balance="undersample",
     ...     classifier="RandomForestClassifier",
@@ -162,6 +169,17 @@ class RunInSemiSupervised:
     ...     run_in_transition_max=15.0
     ... )
     
+    High-dimensional feature reduction with PCA:
+    
+    >>> model = RunInSemiSupervised(
+    ...     model="all",
+    ...     window_size=20,  # Large window for many features
+    ...     pca=10,  # Reduce to 10 principal components
+    ...     scale=True,  # Important for PCA
+    ...     classifier="LogisticRegression",
+    ...     features=['CorrenteRMS', 'VibracaoCalotaInferiorRMS', 'VibracaoCalotaSuperiorRMS']
+    ... )
+    
     Notes
     -----
     The class expects CSV files with specific column structure including 'Tempo',
@@ -173,6 +191,8 @@ class RunInSemiSupervised:
     - Applying class balancing for highly imbalanced datasets  
     - Selecting relevant features based on domain knowledge
     - Using unit-based splitting for more realistic validation
+    - Enabling scaling when using PCA (scale=True)
+    - Choosing PCA components based on explained variance vs. computational efficiency
     
     See Also
     --------
@@ -194,6 +214,7 @@ class RunInSemiSupervised:
                  run_in_transition_max: float = np.inf,
                  test_split: Union[float, List[str]] = 0.2, 
                  balance: str = "none", 
+                 pca: int = 0,
                  classifier: str = "LogisticRegression",
                  classifier_params: Optional[Dict[str, Any]] = None,
                  semisupervised_params: Optional[Dict[str, Any]] = None) -> None:
@@ -228,6 +249,7 @@ class RunInSemiSupervised:
         self.classifier_params = classifier_params if classifier_params is not None else {}
         self.semisupervised_params = semisupervised_params if semisupervised_params is not None else {}
         self.scale = scale
+        self.pca = pca
 
         self._generate_transformers()
 
@@ -479,6 +501,10 @@ class RunInSemiSupervised:
         metrics including confusion matrices, label distributions, and percentage of
         pseudo-labeled samples.
         
+        Note: If PCA is enabled (self.pca > 0), this method applies PCA transformation
+        within each cross-validation fold to prevent data leakage. The PCA transformer
+        is fitted on the training fold and applied to both training and test folds.
+        
         Args:
             n_splits (int, optional): Number of cross-validation splits. If None,
                 uses unit-based cross-validation (leave-one-unit-out). If specified,
@@ -493,7 +519,7 @@ class RunInSemiSupervised:
                 - 'confusion_matrix': Confusion matrices for each fold
                 
         Example:
-            >>> model = RunInSemiSupervised(model="a", features=['CorrenteRMS'])
+            >>> model = RunInSemiSupervised(model="a", features=['CorrenteRMS'], pca=5)
             >>> model.fit()
             >>> # Unit-based cross-validation
             >>> results = model.cross_validate()
@@ -523,6 +549,12 @@ class RunInSemiSupervised:
                 X_train_fold, y_train_fold = self._preprocessor.balance_dataset(X_train_fold, y = y_train_fold)
 
             crossval_model = self._model
+
+            if self.pca > 0:
+                # Apply PCA if specified
+                pca_transformer = PCA(n_components=self.pca)
+                X_train_fold = pd.DataFrame(pca_transformer.fit_transform(X_train_fold))
+                X_test_fold = pd.DataFrame(pca_transformer.transform(X_test_fold))
 
             # Train model
             crossval_model.fit(X_train_fold, y_train_fold)

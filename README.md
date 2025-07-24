@@ -6,6 +6,7 @@ A Python package for semi-supervised learning applied to [running-in](https://en
 
 - **Complete Pipeline**: Integrated data loading, preprocessing, and semi-supervised modeling
 - **Time Series Preprocessing**: Time-series filtering, sliding window transformations, and moving averages
+- **Dimensionality Reduction**: Built-in PCA support for feature space reduction
 - **Flexible Data Splitting**: Support for both proportional and unit-based train/test splits
 - **Class Balancing**: Built-in support for handling imbalanced datasets with undersampling
 - **Multiple Classifiers**: Support for various sklearn classifiers with semi-supervised learning
@@ -105,6 +106,25 @@ model = RunInSemiSupervised(
     classifier_params=classifier_params,
     semisupervised_params=semisupervised_params
 )
+```
+
+### Dimensionality Reduction with PCA
+
+```python
+# Example with PCA for high-dimensional feature reduction
+model_with_pca = RunInSemiSupervised(
+    compressor_model='all',    # Use all available data
+    window_size=20,           # Large window creates many features
+    pca=10,                   # Reduce to 10 principal components
+    scale=True,               # Essential for PCA
+    features=['CorrenteRMS', 'VibracaoCalotaInferiorRMS', 'VibracaoCalotaSuperiorRMS'],
+    balance="undersample",
+    classifier="LogisticRegression"
+)
+
+# PCA is applied automatically during training and prediction
+model_with_pca.fit()
+cv_results = model_with_pca.cross_validate()
 ```
 
 ## Package Structure
@@ -407,6 +427,7 @@ The script optimizes the following hyperparameters:
 | `delay` | 1-max_delay | Delay parameter (dynamically calculated) |
 | `scale` | True/False | Feature scaling |
 | `balance` | undersample/none | Class balancing method |
+| `pca` | 0-window_size | PCA components (0 = no PCA, >0 = apply PCA) |
 | `threshold` | 0.05-0.99 | Semi-supervised threshold |
 | `features` | 26 options | Individual feature selection |
 | `classifier_params` | varies | Classifier-specific parameters |

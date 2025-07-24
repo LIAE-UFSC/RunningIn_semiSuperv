@@ -2,6 +2,7 @@ from delayedsw import DelayedSlidingWindow, MovingAverageTransformer
 from sklearn.model_selection import train_test_split
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.preprocessing import StandardScaler, FunctionTransformer
+from sklearn.decomposition import PCA
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Union, Any, Tuple
@@ -9,11 +10,8 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 class RunInPreprocessor:
     """
     A preprocessor for run-in analysis data that handles time filtering, feature selection,
-    sliding window transformations, and label generation for semi-supervised learning.
-    
-    This class is designed to preprocess data for run-in period detection in mechanical
-    systems, applying moving averages, sliding windows, and labeling strategies to
-    prepare data for machine learning models.
+    sliding window transformations, PCA dimensionality reduction, and label generation for 
+    semi-supervised learning.
     
     Attributes:
         window_size (int): Size of the sliding window for feature transformation.
@@ -23,6 +21,7 @@ class RunInPreprocessor:
         t_min (float): Minimum time threshold for filtering data.
         t_max (float): Maximum time threshold for filtering data.
         scale (bool): Whether to apply scaling to the features.
+        pca (int): Number of principal components for PCA dimensionality reduction.
         run_in_transition_min (float): Minimum time for run-in transition labeling.
         run_in_transition_max (float): Maximum time for run-in transition labeling.
         X (pd.DataFrame): Processed feature matrix.
@@ -41,7 +40,8 @@ class RunInPreprocessor:
                  run_in_transition_min: float = 5, 
                  run_in_transition_max: float = np.inf,
                  test_split: Union[float, List[str]] = 0.2, 
-                 balance: str = "none") -> None:
+                 balance: str = "none",
+                 pca: int = 0) -> None:
         """
         Initialize the RunInPreprocessor with specified parameters.
         
@@ -62,6 +62,9 @@ class RunInPreprocessor:
                 should be a list of strings containing names of units in the dataset. Defaults to 0.2.
             balance (str, optional): Method for balancing classes. Options are "none" and "undersample".
                 "undersample" will reduce the majority class using random undersampling.
+            pca (int, optional): Number of principal components to keep. If 0 (default), 
+                no PCA dimensionality reduction is applied. If > 0, applies PCA with the 
+                specified number of components after windowing and scaling but before training.
         """
 
         self.window_size = window_size
@@ -83,6 +86,12 @@ class RunInPreprocessor:
         self.test_split = test_split
         self.balance = balance
         self.metadata = pd.DataFrame()
+        self.pca = pca
+
+        if self.pca < 0:
+            raise ValueError("PCA components must be non-negative. Use 0 for no PCA.")
+        elif self.pca > self.window_size:
+            raise ValueError("PCA components cannot exceed the window size. Use a value <= window_size.")
 
 
     def set_filter_params(self, 
@@ -243,10 +252,15 @@ class RunInPreprocessor:
         self._WindowTransformer = DelayedSlidingWindow(window_size=self.window_size, delay_space=self.delay,
                                               columns_to_transform=self._features,
                                               split_by=['Unidade', 'N_ensaio'], order_by=['Tempo'])
+        if self.pca > 0:
+            # Initialize PCA if specified
+            self._PCATransformer = PCA(n_components=self.pca)
+        else:
+            self._PCATransformer = FunctionTransformer()  # No PCA, just a passthrough
         
         return self
 
-    def transform(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def transform(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Transform input data using the fitted preprocessor.
         
@@ -288,7 +302,6 @@ class RunInPreprocessor:
         data[self._features] = self._ScalerTransformer.fit_transform(data[self._features]) # Scale the features if scaling is enabled
         data = self._FilterTransformer.fit_transform(data)
         data = self._WindowTransformer.fit_transform(data.reset_index(drop=True)) # TODO: Remove reset_index after issue is resolved in delayedsw
-
         data = data.dropna()
         data = data.reset_index(drop=True)
 
@@ -316,6 +329,8 @@ class RunInPreprocessor:
 
         # Balance classes if specified
         self.balance_classes()
+
+        _,_ = self.get_train_data()  # Ensure that PCA is fitted to the training data
 
         return self.get_full_data()  # Return preprocessed X and y
 
@@ -395,7 +410,7 @@ class RunInPreprocessor:
         """
         return pd.concat([self.metadata.iloc[self.train_index], self.metadata.iloc[self.test_index]], ignore_index=True).reset_index(drop=True)
 
-    def get_train_data(self, balanced = None) -> Tuple[pd.DataFrame, pd.Series]:
+    def get_train_data(self, apply_PCA: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Get the preprocessed data after fitting.
         
@@ -417,8 +432,14 @@ class RunInPreprocessor:
         if self.X.empty or self.y.empty:
             raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
 
-        return self.X.iloc[self.train_index], self.y.iloc[self.train_index]
-    
+        X_train = self.X.iloc[self.train_index]
+        Y_train = self.y.iloc[self.train_index]
+
+        if apply_PCA:
+            X_train = pd.DataFrame(self._PCATransformer.fit_transform(X_train))
+
+        return X_train, Y_train
+
     def get_balanced_train_data(self) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Get the balanced training data after fitting.
@@ -447,7 +468,7 @@ class RunInPreprocessor:
         elif self.balance == "undersample":
             return self.X.iloc[self.index_train_balanced], self.y[self.index_train_balanced]
 
-    def get_test_data(self) -> Tuple[pd.DataFrame, pd.Series]:
+    def get_test_data(self, apply_PCA: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Get the preprocessed test data after fitting.
         
@@ -465,7 +486,13 @@ class RunInPreprocessor:
         if self.X.empty or self.y.empty:
             raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
 
-        return self.X.iloc[self.test_index], self.y.iloc[self.test_index]
+        X_test = self.X.iloc[self.test_index]
+        y_test = self.y.iloc[self.test_index]
+
+        if apply_PCA:
+            X_test = pd.DataFrame(self._PCATransformer.transform(X_test))
+
+        return X_test, y_test
 
     def get_full_data(self) -> Tuple[pd.DataFrame, pd.Series]:
         """
@@ -485,10 +512,12 @@ class RunInPreprocessor:
         if self.X.empty or self.y.empty:
             raise ValueError("The preprocessor has not been fitted yet. Please call fit() and transform() before accessing the data.")
 
-        indexes = np.concatenate((self.train_index, self.test_index))
-        return (self.X.iloc[indexes], self.y.iloc[indexes])
+        X_train, y_train = self.get_train_data()
+        X_test, y_test = self.get_test_data()
 
-    def fit_transform(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        return pd.concat([X_train, X_test]), pd.concat([y_train, y_test])
+
+    def fit_transform(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Fit the preprocessor to the data and transform it in one step.
         
