@@ -269,6 +269,13 @@ class OptimizationRunIn():
                 'Vazao'])
         
         
+        if compressor_model == "a":
+            test_compressor = ["a3"]
+        elif compressor_model == "b":
+            test_compressor = ["b10"]
+        else:
+            test_compressor = ["a3","b10"]
+
         # Initialize the semi-supervised learning pipeline with trial parameters
         self.model = RunInSemiSupervised(
             **(self.parameters),
@@ -280,7 +287,7 @@ class OptimizationRunIn():
                 'max_iter': 1000
             },
             classifier_params=self.classifier_parameters,
-            test_split=["a3"],
+            test_split=test_compressor,
             features=[features],
         )
 
