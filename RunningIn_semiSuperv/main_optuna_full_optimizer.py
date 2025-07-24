@@ -250,6 +250,11 @@ class OptimizationRunIn():
         else:
             max_delay = (max_init_samples - (self.parameters['moving_average'] - 1))// (self.parameters['window_size'] - 1)
             self.parameters["delay"] = trial.suggest_int('delay', 1, max_delay)
+        
+        # PCA dimensionality reduction: suggest number of components from 0 to window_size
+        # 0 = no PCA, >0 = apply PCA with specified number of components
+        # Limited by window_size since PCA cannot have more components than features
+        self.parameters['pca'] = trial.suggest_int('pca', 0, self.parameters["window_size"])
 
         self.select_classifier(trial = trial)
         threshold = trial.suggest_float('threshold', 0.05, 0.99)
