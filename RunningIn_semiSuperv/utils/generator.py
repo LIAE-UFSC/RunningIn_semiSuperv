@@ -527,7 +527,7 @@ class RunInSemiSupervised:
             >>> results = model.cross_validate(n_splits=5)
         """
 
-        X_train, y_train = self.get_train_data(balanced=False)
+        X_train, y_train = self.get_train_data(balanced=False, apply_PCA=False)
 
         if n_splits is None:
             iterator = enumerate(self._get_cv_perunit_index_train())
@@ -597,20 +597,22 @@ class RunInSemiSupervised:
 
         pass
     
-    def get_train_data(self, balanced: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
-        """
+    def get_train_data(self, balanced: bool = True, apply_PCA = None) -> Tuple[pd.DataFrame, pd.Series]:
+        """None
         Get the training data used for fitting the model.
         
         Returns:
             Tuple[pd.DataFrame, pd.Series]: Training features and labels.
         """
+        if apply_PCA is None:
+            apply_PCA = self.pca > 0
 
         if balanced:
             # If balanced is True, return balanced training data
-            return self._preprocessor.get_balanced_train_data()
+            return self._preprocessor.get_balanced_train_data(apply_PCA=apply_PCA)
         else:
             # If balanced is False, return unbalanced training data
-            return self._preprocessor.get_train_data()
+            return self._preprocessor.get_train_data(apply_PCA=apply_PCA)
     
     def get_test_data(self) -> Tuple[pd.DataFrame, pd.Series]:
         """
