@@ -75,12 +75,12 @@ class RunInDataLoader:
                          'B7_A_2021_02_08.csv',
                          'B7_A_2021_02_15.csv']
             },
-            {
-                'unit': 'b8',
-                'tests': ['B8_N_2021_02_18.csv',
-                         'B8_A_2021_02_22.csv',
-                         'B8_A_2021_02_26.csv']
-            },
+            # { ############### B8 is missing vibration data
+            #     'unit': 'b8',
+            #     'tests': ['B8_N_2021_02_18.csv',
+            #              'B8_A_2021_02_22.csv',
+            #              'B8_A_2021_02_26.csv']
+            # },
             {
                 'unit': 'b10',
                 'tests': ['B10_N_2021_03_22.csv',
