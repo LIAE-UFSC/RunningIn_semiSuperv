@@ -49,11 +49,24 @@ import os
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-compressor_model = "a"
-n_processes = 4
-n_tests = 1000
-max_init_samples = 180  # Maximum total window size for optimization (moving_average - 1 + (window_size - 1) * delay)
-auto_broadcast = False
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Optuna Hyperparameter Optimization for RunIn Semi-Supervised Learning")
+    parser.add_argument("--compressor_model", type=str, default="a", choices=["a", "b", "both"],
+                        help="Compressor model to use: 'a', 'b', or 'both'")
+    parser.add_argument("--n_processes", type=int, default=4, help="Number of parallel processes for optimization")
+    parser.add_argument("--n_tests", type=int, default=1000, help="Total number of optimization trials")
+    parser.add_argument("--max_init_samples", type=int, default=180, help="Maximum total window size for optimization")
+    parser.add_argument("--auto_broadcast", action="store_true", help="Automatically start Optuna dashboard")
+    return parser.parse_args()
+
+args = parse_args()
+compressor_model = args.compressor_model
+n_processes = args.n_processes
+n_tests = args.n_tests
+max_init_samples = args.max_init_samples
+auto_broadcast = args.auto_broadcast
 
 # Database configuration
 USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
