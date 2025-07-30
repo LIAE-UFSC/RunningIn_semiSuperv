@@ -53,8 +53,8 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Optuna Hyperparameter Optimization for RunIn Semi-Supervised Learning")
-    parser.add_argument("--compressor_model", type=str, default="a", choices=["a", "b", "both"],
-                        help="Compressor model to use: 'a', 'b', or 'both'")
+    parser.add_argument("--compressor_model", type=str, default="a", choices=["a", "b", "all"],
+                        help="Compressor model to use: 'a', 'b', or 'all'")
     parser.add_argument("--n_processes", type=int, default=4, help="Number of parallel processes for optimization")
     parser.add_argument("--n_tests", type=int, default=1000, help="Total number of optimization trials")
     parser.add_argument("--max_init_samples", type=int, default=180, help="Maximum total window size for optimization")
