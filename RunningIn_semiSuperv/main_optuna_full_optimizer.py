@@ -162,8 +162,9 @@ class OptimizationRunIn():
                 "max_features": trial.suggest_categorical('max_features', ['sqrt', 'log2', None])
             }
         elif self.classifier == "PLSCanonical":
+            max_window = self.parameters["window_size"] if self.parameters["pca"] == 0 else self.parameters["pca"] 
             self.classifier_parameters = {
-                "n_components": trial.suggest_int('n_components', 1, self.parameters["window_size"]),
+                "n_components": trial.suggest_int('n_components', 1, max_window),
                 "scale": trial.suggest_categorical('scale', [True, False]),
                 "max_iter": 1000
             }
@@ -259,7 +260,7 @@ class OptimizationRunIn():
             self.parameters['pca'] = trial.suggest_int('n_pca', 1, self.parameters["window_size"])
         else:
             self.parameters['pca'] = 0
-            
+
         self.select_classifier(trial = trial)
         threshold = trial.suggest_float('threshold', 0.05, 0.99)
         features = trial.suggest_categorical('features',[
