@@ -59,6 +59,7 @@ def parse_args():
     parser.add_argument("--n_tests", type=int, default=1000, help="Total number of optimization trials")
     parser.add_argument("--max_init_samples", type=int, default=180, help="Maximum total window size for optimization")
     parser.add_argument("--auto_broadcast", action="store_true", help="Automatically start Optuna dashboard")
+    parser.add_argument("--pareto_stop", type=int, default=-1, help="Number of trials to stop after not advancing the Pareto front")
     return parser.parse_args()
 
 args = parse_args()
@@ -67,6 +68,7 @@ n_processes = args.n_processes
 n_tests = args.n_tests
 max_init_samples = args.max_init_samples
 auto_broadcast = args.auto_broadcast
+pareto_stop = args.pareto_stop
 
 # Database configuration
 USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
@@ -469,6 +471,15 @@ if __name__ == "__main__":
                 dashboard_process = None
             
             start_time = time.time()
+
+            pareto_trials = study.best_trials
+            last_pareto = np.max([t.number for t in pareto_trials], axis=0) if pareto_trials else 0
+
+        
+            if pareto_stop > 0 and (len(study.trials) - last_pareto) >= pareto_stop:
+                # TODO: implement this as an actual stopping condition, not just a check and skip
+                print(f"Stopping optimization for {classifier_type} due to Pareto front stagnation.")
+                continue
 
             # Calculate number of studies per process
             N_studies_left = n_tests
