@@ -479,7 +479,7 @@ if __name__ == "__main__":
 
             while (len(study.trials) - last_pareto) < pareto_stop:
                 n_tests = pareto_stop - (len(study.trials) - last_pareto)
-                print(f"Running iteration of optimizer, aiming for {pareto_trials} tests after advancing.")
+                print(f"Running iteration of optimizer, aiming for {pareto_stop} tests after advancing.")
                 print(f"Last Pareto front advance has been {len(study.trials) - last_pareto} trials ago. Test again after {n_tests} trials.")
 
                 # Calculate number of studies per process
