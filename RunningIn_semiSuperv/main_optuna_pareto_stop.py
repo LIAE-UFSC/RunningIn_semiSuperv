@@ -472,8 +472,7 @@ if __name__ == "__main__":
             
             start_time = time.time()
 
-            pareto_trials = study.best_trials
-            last_pareto = np.max([t.number for t in pareto_trials], axis=0) if pareto_trials else 0
+            last_pareto = study.best_trials[-1].number if study.best_trials else 0
 
             n_done = len(study.trials)
             if (n_done - last_pareto) >= pareto_stop:
@@ -509,8 +508,7 @@ if __name__ == "__main__":
                 for p in processes:
                     p.join()
 
-                pareto_trials = study.best_trials
-                last_pareto = np.max([t.number for t in pareto_trials], axis=0) if pareto_trials else 0
+                last_pareto = study.best_trials[-1].number if study.best_trials else 0
                 n_done = len(study.trials)
 
             elapsed = time.time() - start_time
