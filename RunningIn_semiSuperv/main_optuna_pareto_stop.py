@@ -59,6 +59,7 @@ def parse_args():
     parser.add_argument("--max_init_samples", type=int, default=180, help="Maximum total window size for optimization")
     parser.add_argument("--auto_broadcast", action="store_true", help="Automatically start Optuna dashboard")
     parser.add_argument("--pareto_stop", type=int, default=-1, help="Number of trials to stop after not advancing the Pareto front", required=True)
+    parser.add_argument("--max_iter", type=int, default=100000, help="Maximum iterations for optimization")
     return parser.parse_args()
 
 args = parse_args()
@@ -67,6 +68,7 @@ n_processes = args.n_processes
 max_init_samples = args.max_init_samples
 auto_broadcast = args.auto_broadcast
 pareto_stop = args.pareto_stop
+max_iter = args.max_iter
 
 # Database configuration
 USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
@@ -473,14 +475,23 @@ if __name__ == "__main__":
             pareto_trials = study.best_trials
             last_pareto = np.max([t.number for t in pareto_trials], axis=0) if pareto_trials else 0
 
-            if (len(study.trials) - last_pareto) >= pareto_stop:
+            n_done = len(study.trials)
+            if (n_done - last_pareto) >= pareto_stop:
                 print(f"Already reached Pareto front stop condition for {classifier_type}. No further optimization needed.")
                 continue
-
-            while (len(study.trials) - last_pareto) < pareto_stop:
-                n_tests = pareto_stop - (len(study.trials) - last_pareto)
+            elif n_done >= max_iter:
+                print(f"Already reached maximum iterations ({max_iter}) for {classifier_type}. No further optimization needed.")
+                continue
+            else:
                 print(f"Running iteration of optimizer, aiming for {pareto_stop} tests after advancing.")
-                print(f"Last Pareto front advance has been {len(study.trials) - last_pareto} trials ago. Test again after {n_tests} trials.")
+
+            while ((n_done - last_pareto) < pareto_stop) and (n_done < max_iter):
+                if (n_done + pareto_stop) >= max_iter:
+                    n_tests = max_iter - n_done
+                    print(f"Approaching maximum iterations ({max_iter}). Running only {n_tests} more trials.")
+                else:
+                    n_tests = pareto_stop - (n_done - last_pareto)
+                    print(f"Last Pareto front advance has been {n_done - last_pareto} trials ago. Test again after {n_tests} trials.")
 
                 # Calculate number of studies per process
                 N_studies_left = n_tests
@@ -500,6 +511,7 @@ if __name__ == "__main__":
 
                 pareto_trials = study.best_trials
                 last_pareto = np.max([t.number for t in pareto_trials], axis=0) if pareto_trials else 0
+                n_done = len(study.trials)
 
             elapsed = time.time() - start_time
             print(f"Tests finished for classifier {classifier_type}. Elapsed time: {elapsed:.2f} seconds")
