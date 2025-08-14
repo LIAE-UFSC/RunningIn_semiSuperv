@@ -73,7 +73,7 @@ max_iter = args.max_iter
 # Database configuration
 USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
 POSTGRES_CONFIG = {
-    'host': 'localhost',
+    'host': '100.107.250.125',
     'port': 5432,
     'database': 'optuna_db',
     'user': 'optuna_user',
