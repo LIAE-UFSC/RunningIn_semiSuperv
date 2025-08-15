@@ -409,6 +409,7 @@ def stop_optuna_dashboard(dashboard_process):
 if __name__ == "__main__":
     # Add stream handler of stdout to show the messages
     optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
+    mp.set_start_method("spawn", force=True)
 
     for classifier_type in OptimizationRunIn.supported_classifiers:
         dashboard_process = None
