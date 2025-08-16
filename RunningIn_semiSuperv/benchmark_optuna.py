@@ -12,6 +12,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT # <-- ADD THIS LINE
 import argparse
 import os
 from utils.optimizator import OptimizationRunIn
+import getpass
 
 # Database configuration
 # NOTE: Update 'admin_password' with your actual PostgreSQL admin password
@@ -22,7 +23,6 @@ POSTGRES_CONFIG = {
     'user': 'optuna_test_user',
     'password': 'test_password',
     'admin_user': 'postgres',
-    'admin_password': 'admin_password'  # Update this with your actual postgres password
 }
 
 n_proc = [1,2,5,10]
@@ -197,6 +197,9 @@ def append_result_to_csv(result_data, file_path):
 if __name__ == "__main__":
 
     args = parse_args()
+    # Prompt for PostgreSQL admin password if not set in config
+    if 'admin_password' not in POSTGRES_CONFIG or not POSTGRES_CONFIG['admin_password']:
+        POSTGRES_CONFIG['admin_password'] = getpass.getpass("Enter PostgreSQL admin password: ")
 
     warnings.filterwarnings("ignore", category=UserWarning)
 
