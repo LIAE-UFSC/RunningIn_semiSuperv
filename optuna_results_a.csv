@@ -1,0 +1,13 @@
+n_proc,n_jobs,elapsed_time,type
+1,1,41.05795097351074,LogisticRegression
+2,1,40.92790985107422,LogisticRegression
+5,1,52.79768633842468,LogisticRegression
+10,1,48.659589529037476,LogisticRegression
+1,1,125.02762198448181,DecisionTreeClassifier
+2,1,90.33659887313843,DecisionTreeClassifier
+5,1,95.29598188400269,DecisionTreeClassifier
+10,1,73.87838816642761,DecisionTreeClassifier
+1,1,252.10943031311035,KNeighborsClassifier
+2,1,135.86510634422302,KNeighborsClassifier
+5,1,182.2481243610382,KNeighborsClassifier
+10,1,205.24279689788818,KNeighborsClassifier
