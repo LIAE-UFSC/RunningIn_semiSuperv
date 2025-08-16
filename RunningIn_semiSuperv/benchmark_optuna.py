@@ -26,10 +26,6 @@ POSTGRES_CONFIG = {
 }
 
 n_proc = [1,2,3,4,5,10]
-if os.name == "nt":
-    n_jobs_array = [1,2,3,4,5,10]
-else: # Python GIL doesn't deal well in Linux with n_jobs>1
-    n_jobs_array = [1]
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Optuna Hyperparameter Optimization for RunIn Semi-Supervised Learning")
@@ -237,21 +233,20 @@ if __name__ == "__main__":
             optimizer.postgres_config = POSTGRES_CONFIG  # Set the PostgreSQL config
 
             for n_processes in n_proc:
-                for n_j in n_jobs_array:
 
-                    start_time = time.time()
+                start_time = time.time()
 
-                    optimizer.multithreading_optimization(n_trials=n_tests, n_jobs=n_j, n_processes=n_processes, connect_db_allproc=True, method = "fork")
+                optimizer.multithreading_optimization(n_trials=n_tests, n_jobs=1, n_processes=n_processes, connect_db_allproc=True, method = "fork")
 
-                    elapsed = time.time() - start_time
-                    result = {}
-                    result["n_proc"] = n_processes
-                    result["n_jobs"] = n_j
-                    result["elapsed_time"] = elapsed
-                    result["type"] = classifier_type
-                    
-                    # Append result to CSV immediately
-                    append_result_to_csv(result, results_file)
+                elapsed = time.time() - start_time
+                result = {}
+                result["n_proc"] = n_processes
+                result["n_jobs"] = 1
+                result["elapsed_time"] = elapsed
+                result["type"] = classifier_type
+                
+                # Append result to CSV immediately
+                append_result_to_csv(result, results_file)
 
             print(f"Tests finished for classifier {classifier_type}.")
                 
