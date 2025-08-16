@@ -25,9 +25,9 @@ POSTGRES_CONFIG = {
     'admin_user': 'postgres',
 }
 
-n_proc = [1,2,5,10]
+n_proc = [1,2,3,4,5,10]
 if os.name == "nt":
-    n_jobs_array = [1,2,5,10]
+    n_jobs_array = [1,2,3,4,5,10]
 else: # Python GIL doesn't deal well in Linux with n_jobs>1
     n_jobs_array = [1]
 
