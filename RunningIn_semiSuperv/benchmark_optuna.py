@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument("--compressor_model", type=str, default="a", choices=["a", "b", "all"],
                         help="Compressor model to use: 'a', 'b', or 'all'")
     parser.add_argument("--n_tests", type=int, default=100, help="Total number of optimization trials")
+    parser.add_argument("--classifiers", nargs="+", default = ["all"], help="List of classifiers to optimize")
     return parser.parse_args()
 
 def setup_test_database():
@@ -201,6 +202,11 @@ if __name__ == "__main__":
 
     compressor_model = args.compressor_model
     n_tests = args.n_tests
+    classifiers = args.classifiers
+
+    if classifiers == ["all"]:
+        classifiers = OptimizationRunIn.supported_classifiers
+
     max_init_samples = 180
 
     # Setup test database and user
@@ -223,9 +229,8 @@ if __name__ == "__main__":
     # Add stream handler of stdout to show the messages
     optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
 
-
     try:
-        for classifier_type in OptimizationRunIn.supported_classifiers:
+        for classifier_type in classifiers:
 
             # Create an instance of the optimization class
             optimizer = OptimizationRunIn(classifier=classifier_type, compressor_model=compressor_model, use_postgres=True)

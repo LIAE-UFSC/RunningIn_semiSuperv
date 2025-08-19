@@ -55,6 +55,7 @@ def parse_args():
     parser.add_argument("--auto_broadcast", action="store_true", help="Automatically start Optuna dashboard")
     parser.add_argument("--pareto_stop", type=int, default=-1, help="Number of trials to stop after not advancing the Pareto front", required=True)
     parser.add_argument("--max_iter", type=int, default=100000, help="Maximum iterations for optimization")
+    parser.add_argument("--classifiers", nargs="+", default = ["all"], help="List of classifiers to optimize")
     return parser.parse_args()
 
 # Database configuration
@@ -78,9 +79,12 @@ if __name__ == "__main__":
     auto_broadcast = args.auto_broadcast
     pareto_stop = args.pareto_stop
     max_iter = args.max_iter
+    classifiers = args.classifiers
 
+    if classifiers == ["all"]:
+        classifiers = OptimizationRunIn.supported_classifiers
 
-    for classifier_type in OptimizationRunIn.supported_classifiers:
+    for classifier_type in classifiers:
 
             # Create an instance of the optimization class
             optimizer = OptimizationRunIn(classifier=classifier_type, compressor_model=compressor_model, use_postgres=True)
