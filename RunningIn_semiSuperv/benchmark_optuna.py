@@ -184,6 +184,10 @@ def append_result_to_csv(result_data, file_path):
     try:
         # Create a DataFrame with the single result
         result_df = pd.DataFrame([result_data])
+        # Ensure the directory exists
+        results_dir = os.path.dirname(file_path)
+        if results_dir:
+            os.makedirs(results_dir, exist_ok=True)
         # Append to CSV file
         result_df.to_csv(file_path, mode='a', header=False, index=False)
         print(f"Appended result for {result_data.get('type', 'unknown')} classifier to {file_path}")

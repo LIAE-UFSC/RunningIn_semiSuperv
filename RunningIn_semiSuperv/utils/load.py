@@ -1,5 +1,4 @@
 import pandas as pd
-from pathlib import PurePath
 import os
 from typing import Dict, List, Optional, Union, Any
 
@@ -144,16 +143,16 @@ class RunInDataLoader:
         """
 
         if dict_folder is None:
-            base_folder = PurePath(os.getcwd(), 'LabeledData')
+            base_folder = os.path.join(os.getcwd(), 'LabeledData')
             if model is None:
                 raise ValueError("Model must be specified if dict_folder is not provided.")
             elif model == "all":
                 test_all = self._base_folders
-                self.dict_folder = [{"unit": unit["unit"], "tests": [PurePath(base_folder, test) for test in unit['tests']]}
+                self.dict_folder = [{"unit": unit["unit"], "tests": [os.path.join(base_folder, test) for test in unit['tests']]}
                                     for unit in test_all]
             else:
                 test_all = [unit for unit in self._base_folders if unit['unit'][0] == model]
-                self.dict_folder = [{"unit": unit['unit'], "tests": [PurePath(base_folder, test) for test in unit['tests']]}
+                self.dict_folder = [{"unit": unit['unit'], "tests": [os.path.join(base_folder, test) for test in unit['tests']]}
                                     for unit in test_all]
         else:
             self.dict_folder = dict_folder
@@ -198,7 +197,7 @@ class RunInDataLoader:
         """
 
         if self.data.empty:
-            data_total = [{"unit": unit['unit'], "tests": [pd.read_csv(test) for test in unit['tests']]} for unit in self.dict_folder]
+            data_total = [{"unit": unit['unit'], "tests": [pd.read_csv(str(test)) for test in unit['tests']]} for unit in self.dict_folder]
             data_total = self._joinTests(data_total)
             if self.features is not None:
                 # Filter the data to only include the specified features
