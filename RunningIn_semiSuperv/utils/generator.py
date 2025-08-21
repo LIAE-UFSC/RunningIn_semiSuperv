@@ -461,22 +461,26 @@ class RunInSemiSupervised:
         
         # Make predictions
         return self._model.predict(X_transformed)
-    
-    def predict(self, X: Any) -> Any:
+
+    def predict(self, X: Any, already_transformed: bool = False) -> Any:
         """
         Predict labels using the trained model.
         
         Args:
             X (pd.DataFrame): Input features for prediction.
-        
+            already_transformed (bool): Whether the input features are already transformed.
+
         Returns:
             np.ndarray: Predicted labels.
         """
-        
+
+        if not already_transformed:
+            X = self._preprocessor.transform(X)
+
         # Make predictions
         return self._model.predict(X)
     
-    def predict_proba(self, X: Any) -> Any:
+    def predict_proba(self, X: Any, already_transformed: bool = False) -> Any:
         """
         Predict probabilities using the trained model.
         
@@ -486,11 +490,13 @@ class RunInSemiSupervised:
         Returns:
             np.ndarray: Predicted probabilities for each class.
         """
-        # Ensure X is preprocessed
-        X_transformed = self._preprocessor.transform(X)
-        
+
+        if not already_transformed:
+            # Ensure X is preprocessed
+            X = self._preprocessor.transform(X)
+
         # Make probability predictions
-        return self._model.predict_proba(X_transformed)
+        return self._model.predict_proba(X)
     
     def cross_validate(self, n_splits = None) -> Any:
         """
@@ -597,15 +603,18 @@ class RunInSemiSupervised:
 
         pass
     
-    def get_train_data(self, balanced: bool = True, apply_PCA = None) -> Tuple[pd.DataFrame, pd.Series]:
-        """None
-        Get the training data used for fitting the model.
+    def get_train_data(self, balanced: bool|None = None, apply_PCA: bool|None = None) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        Get the training data used fthr_labeled = 0.5or fitting the model.
         
         Returns:
             Tuple[pd.DataFrame, pd.Series]: Training features and labels.
         """
         if apply_PCA is None:
             apply_PCA = self.pca > 0
+
+        if balanced is None:
+            balanced = self.balance != "none"
 
         if balanced:
             # If balanced is True, return balanced training data
