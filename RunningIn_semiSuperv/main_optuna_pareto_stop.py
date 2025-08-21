@@ -95,7 +95,9 @@ if __name__ == "__main__":
 
             study_monitor = optimizer.init_study()
 
-            last_pareto = study_monitor.best_trials[-1].number if study_monitor.best_trials else 0
+            pareto_trials = study_monitor.best_trials
+
+            last_pareto = pareto_trials[-1].number if pareto_trials else 0
 
             n_done = len(study_monitor.trials)
 
@@ -117,8 +119,8 @@ if __name__ == "__main__":
                     print(f"Last Pareto front advance has been {n_done - last_pareto} trials ago. Test again after {n_tests} trials.")
 
                 optimizer.multithreading_optimization(n_trials=n_tests, n_jobs=1, n_processes=n_processes, connect_db_allproc=True, method = "fork")
-
-                last_pareto = study_monitor.best_trials[-1].number if study_monitor.best_trials else 0
+                pareto_trials = study_monitor.best_trials
+                last_pareto = pareto_trials[-1].number if pareto_trials else 0
                 n_done = len(study_monitor.trials)
 
             elapsed = time.time() - start_time
