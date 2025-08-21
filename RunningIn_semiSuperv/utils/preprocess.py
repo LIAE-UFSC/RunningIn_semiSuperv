@@ -319,8 +319,6 @@ class RunInPreprocessor:
         cols_to_keep = list(set(feature_cols + ['Amaciado']))
         data = data[[col for col in data_columns if col in cols_to_keep]]
 
-        
-        
         # Split X and y
         self.X, self.y = self._splitXY(data)
 
@@ -475,7 +473,7 @@ class RunInPreprocessor:
                 X_train_balanced = self.X.iloc[self.index_train_balanced]
             return X_train_balanced, self.y[self.index_train_balanced]
 
-    def get_test_data(self, apply_PCA: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
+    def get_test_data(self, apply_PCA: bool|None = None) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Get the preprocessed test data after fitting.
         
@@ -495,6 +493,9 @@ class RunInPreprocessor:
 
         X_test = self.X.iloc[self.test_index]
         y_test = self.y.iloc[self.test_index]
+
+        if apply_PCA is None:
+            apply_PCA = self.pca > 0
 
         if apply_PCA:
             X_test = pd.DataFrame(self._PCATransformer.transform(X_test))
