@@ -11,7 +11,7 @@ from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT # <-- ADD THIS LINE
 import argparse
 import os
-from utils.optimizator import OptimizationRunIn
+from utils.optimizer import OptimizationRunIn
 import getpass
 
 # Database configuration

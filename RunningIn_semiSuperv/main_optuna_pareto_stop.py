@@ -33,7 +33,7 @@ Common Issues:
 - Authentication failed: Verify username/password in POSTGRES_CONFIG
 """
 
-from utils.optimizator import OptimizationRunIn
+from utils.optimizer import OptimizationRunIn
 import logging
 import optuna
 from scipy.stats import gmean

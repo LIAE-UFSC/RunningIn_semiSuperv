@@ -34,6 +34,7 @@ Common Issues:
 """
 
 from utils import RunInSemiSupervised
+from utils.optimizer import OptimizationRunIn
 import logging
 import optuna
 from scipy.stats import gmean
@@ -59,7 +60,6 @@ def parse_args():
     parser.add_argument("--n_tests", type=int, default=1000, help="Total number of optimization trials")
     parser.add_argument("--max_init_samples", type=int, default=180, help="Maximum total window size for optimization")
     parser.add_argument("--auto_broadcast", action="store_true", help="Automatically start Optuna dashboard")
-    parser.add_argument("--pareto_stop", type=int, default=-1, help="Number of trials to stop after not advancing the Pareto front")
     return parser.parse_args()
 
 args = parse_args()
@@ -68,7 +68,6 @@ n_processes = args.n_processes
 n_tests = args.n_tests
 max_init_samples = args.max_init_samples
 auto_broadcast = args.auto_broadcast
-pareto_stop = args.pareto_stop
 
 # Database configuration
 USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
@@ -95,246 +94,6 @@ def MCC_score_from_confusion_matrix(cm):
     denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
     return numerator / denominator if denominator != 0 else 0
 
-def get_database_url(classifier_type):
-    """
-    Get the database URL for either SQLite or PostgreSQL.
-    
-    Args:
-        classifier_type (str): Name of the classifier
-    
-    Returns:
-        str: Database URL string
-    """
-    if USE_POSTGRES:
-        # Check if psycopg2 is available
-        try:
-            import psycopg2
-        except ImportError:
-            raise ImportError(
-                "PostgreSQL support requires psycopg2. Install it with:\n"
-                "pip install psycopg2-binary\n"
-                "Or set USE_POSTGRES = False to use SQLite instead."
-            )
-        
-        # PostgreSQL URL format
-        return (f"postgresql://{POSTGRES_CONFIG['user']}:{POSTGRES_CONFIG['password']}"
-                f"@{POSTGRES_CONFIG['host']}:{POSTGRES_CONFIG['port']}"
-                f"/{POSTGRES_CONFIG['database']}")
-    else:
-        # SQLite URL format
-        results_dir = Path(__file__).resolve().parent.parent / "Results"
-        results_dir.mkdir(exist_ok=True)
-        return f"sqlite:///{results_dir.as_posix()}/RunIn_{classifier_type}.db"
-
-class OptimizationRunIn():
-
-    supported_classifiers = [
-            "LogisticRegression",
-            "DecisionTreeClassifier",
- #           "PLSCanonical", # Doesn't have probability estimates
-            "KNeighborsClassifier",
-            "LinearSVM",
-            "RBFSVM",
-  #          "GaussianProcess",
-            "RandomForest",
-            "NeuralNet",
-            "AdaBoost",
-            "NaiveBayes",
-            "QDA",
-        ]
-
-    def __init__(self, classifier = "LogisticRegression", compressor_model="a"):
-        if classifier not in self.supported_classifiers:
-            raise ValueError(f"Classifier '{classifier}' not supported. Choose from: {self.supported_classifiers}")
-        self.classifier = classifier
-        self.parameters = {}
-        self.compressor_model = compressor_model
-
-    def select_classifier(self, trial):
-        if self.classifier == "LogisticRegression":
-            self.classifier_parameters = {
-                "C": trial.suggest_float('C', 1e-4, 1e2, log=True),
-                "max_iter": 1000,
-            }
-        elif self.classifier == "DecisionTreeClassifier":
-            self.classifier_parameters = {
-                "max_depth": trial.suggest_int('max_depth', 3, 50),
-                "min_samples_split": trial.suggest_int('min_samples_split', 2, 200),
-                "min_samples_leaf": trial.suggest_int('min_samples_leaf', 1, 100),
-                "max_features": trial.suggest_categorical('max_features', ['sqrt', 'log2', None])
-            }
-        elif self.classifier == "PLSCanonical":
-            max_window = self.parameters["window_size"] if self.parameters["pca"] == 0 else self.parameters["pca"] 
-            self.classifier_parameters = {
-                "n_components": trial.suggest_int('n_components', 1, max_window),
-                "scale": trial.suggest_categorical('scale', [True, False]),
-                "max_iter": 1000
-            }
-        elif self.classifier == "KNeighborsClassifier":
-            self.classifier_parameters = {
-                "n_neighbors": trial.suggest_int('n_neighbors', 3, 100),
-                "weights": trial.suggest_categorical('weights', ['uniform', 'distance']),
-                "metric": trial.suggest_categorical('metric', ['euclidean', 'manhattan', 'minkowski']),
-                "p": trial.suggest_int('p', 1, 3) if trial.params.get('metric') == 'minkowski' else 2
-            }
-        elif self.classifier == "LinearSVM":
-            self.classifier_parameters = {
-                "C": trial.suggest_float('C', 1e-5, 1e3, log=True),
-                "max_iter": 5000
-            }
-        elif self.classifier == "RBFSVM":
-            self.classifier_parameters = {
-                "C": trial.suggest_float('C', 1e-5, 1e3, log=True),
-                "gamma": trial.suggest_float('gamma', 1e-10, 1e1, log=True),
-                "max_iter": 5000
-            }
-        elif self.classifier == "GaussianProcess":
-            self.classifier_parameters = {
-                # Left out kernel selection for now because of LinAlg errors
-                # "kernel": trial.suggest_categorical('kernel', ["RBF", "Matern", "RationalQuadratic", "ExpSineSquared"]),
-                "n_restarts_optimizer": trial.suggest_int('n_restarts_optimizer', 0, 10),
-                "max_iter_predict": 100
-            }
-        elif self.classifier == "RandomForest":
-            self.classifier_parameters = {
-                "n_estimators": trial.suggest_int('n_estimators', 10, 200),
-                "max_depth": trial.suggest_int('max_depth', 3, 20),
-                "min_samples_split": trial.suggest_int('min_samples_split', 2, 20),
-                "min_samples_leaf": trial.suggest_int('min_samples_leaf', 1, 10),
-                "max_features": trial.suggest_categorical('max_features', ['sqrt', 'log2', None]),
-                "bootstrap": trial.suggest_categorical('bootstrap', [True, False])
-            }
-        elif self.classifier == "NeuralNet":
-            hidden_layer_sizes = tuple([trial.suggest_int(f'n_units_l{i}', 10, 200) 
-                                       for i in range(trial.suggest_int('n_layers', 1, 3))])
-            self.classifier_parameters = {
-                "hidden_layer_sizes": hidden_layer_sizes,
-                "activation": trial.suggest_categorical('activation', ['relu', 'tanh', 'logistic']),
-                "alpha": trial.suggest_float('alpha', 1e-6, 1e-2, log=True),
-                "learning_rate": trial.suggest_categorical('learning_rate', ['constant', 'invscaling', 'adaptive']),
-                "max_iter": 600
-            }
-        elif self.classifier == "AdaBoost":
-            self.classifier_parameters = {
-                "n_estimators": trial.suggest_int('n_estimators', 10, 200),
-                "learning_rate": trial.suggest_float('learning_rate', 0.01, 2.0),
-            }
-        elif self.classifier == "NaiveBayes":
-            self.classifier_parameters = {
-                "var_smoothing": trial.suggest_float('var_smoothing', 1e-12, 1e-6, log=True)
-            }
-        elif self.classifier == "QDA":
-            self.classifier_parameters = {
-                "reg_param": trial.suggest_float('reg_param', 0.0, 1.0),
-                "store_covariance": trial.suggest_categorical('store_covariance', [True, False])
-            }
-        else:
-            raise ValueError(f"Unsupported classifier: {self.classifier}")
-
-        return self.classifier_parameters
-
-    def create_runin_semi_supervised_model(self, trial):
-        """
-        Create a RunInSemiSupervisedModel instance with the selected classifier and parameters.
-        
-        Returns:
-            RunInSemiSupervisedModel: Configured model instance.
-        """
-        
-        # Define hyperparameters to optimize
-        self.parameters = {
-            'window_size': trial.suggest_int('window_size', 1, 150),
-            'moving_average': trial.suggest_int('moving_average', 1, 30),
-            'scale': trial.suggest_categorical('scale', [True, False]),
-            'balance': trial.suggest_categorical('balance', ['undersample', 'none'])
-        }
-        if self.parameters["window_size"] == 1: # Delay does not make sense for window size 1
-            self.parameters["delay"] = 1
-        else:
-            max_delay = (max_init_samples - (self.parameters['moving_average'] - 1))// (self.parameters['window_size'] - 1)
-            self.parameters["delay"] = trial.suggest_int('delay', 1, max_delay)
-        
-        # PCA dimensionality reduction: suggest number of components from 0 to window_size
-        # 0 = no PCA, >0 = apply PCA with specified number of components
-        # Limited by window_size since PCA cannot have more components than features
-        pca = trial.suggest_categorical('pca', [True, False])
-        if pca:
-            self.parameters['pca'] = trial.suggest_int('n_pca', 1, self.parameters["window_size"])
-        else:
-            self.parameters['pca'] = 0
-
-        self.select_classifier(trial = trial)
-        threshold = trial.suggest_float('threshold', 0.05, 0.99)
-        features = trial.suggest_categorical('features',[
-                'CorrenteRMS',
-                'CorrenteCurtose',
-                'CorrenteAssimetria',
-                'CorrenteForma',
-                'CorrenteTHD',
-                'CorrentePico',
-                'CorrenteCrista',
-                'CorrenteVariancia',
-                'CorrenteDesvio',
-                'VibracaoCalotaInferiorRMS',
-                'VibracaoCalotaInferiorCurtose',
-                'VibracaoCalotaInferiorAssimetria',
-                'VibracaoCalotaInferiorForma',
-                'VibracaoCalotaInferiorPico',
-                'VibracaoCalotaInferiorCrista',
-                'VibracaoCalotaInferiorVariancia',
-                'VibracaoCalotaInferiorDesvio',
-                'VibracaoCalotaSuperiorRMS',
-                'VibracaoCalotaSuperiorCurtose',
-                'VibracaoCalotaSuperiorAssimetria',
-                'VibracaoCalotaSuperiorForma',   
-                'VibracaoCalotaSuperiorPico',
-                'VibracaoCalotaSuperiorCrista',
-                'VibracaoCalotaSuperiorVariancia',
-                'VibracaoCalotaSuperiorDesvio',
-                'Vazao'])
-        
-        
-        if compressor_model == "a":
-            test_compressor = ["a3"]
-        elif compressor_model == "b":
-            test_compressor = ["b10"]
-        else:
-            test_compressor = ["a3","b10"]
-
-        # Initialize the semi-supervised learning pipeline with trial parameters
-        self.model = RunInSemiSupervised(
-            **(self.parameters),
-            compressor_model=compressor_model,
-            classifier=self.classifier,
-            semisupervised_params={
-                'threshold': threshold,
-                'criterion': 'threshold',
-                'max_iter': 1000
-            },
-            classifier_params=self.classifier_parameters,
-            test_split=test_compressor,
-            features=[features],
-        )
-
-    def objective(self, trial):
-        self.create_runin_semi_supervised_model(trial)
-
-        if (self.model.window_size - 1)*self.model.delay + (self.model.moving_average - 1) > max_init_samples:
-            print(f"Skipping trial due to excessive window size: {self.model.window_size}, delay: {self.model.delay}, moving average: {self.model.moving_average}")
-            return None, None
-
-        # Train the model
-        self.model.fit()
-
-        result = self.model.cross_validate()
-
-        labeled_percentage = gmean(result["percent_labeled"])
-
-        joined_confusion_matrix = np.array(result["confusion_matrix"]).sum(axis=0)
-
-        mcc = MCC_score_from_confusion_matrix(joined_confusion_matrix)
-        
-        return mcc, labeled_percentage
 
 
 def start_optuna_dashboard(storage_name, port=8080):
@@ -416,10 +175,15 @@ if __name__ == "__main__":
         
         try:
             # Create an instance of the optimization class
-            optimizer = OptimizationRunIn(classifier=classifier_type, compressor_model=compressor_model)
+            optimizer = OptimizationRunIn(
+                classifier=classifier_type, 
+                compressor_model=compressor_model,
+                max_init_samples=max_init_samples,
+                use_postgres=USE_POSTGRES
+            )
             
             # Get database URL (SQLite or PostgreSQL)
-            storage_name = get_database_url(classifier_type)
+            storage_name = optimizer.get_database_url()
             
             # Create Optuna study name
             study_name = f"RunIn_{classifier_type}_{compressor_model}"
@@ -471,15 +235,6 @@ if __name__ == "__main__":
                 dashboard_process = None
             
             start_time = time.time()
-
-            pareto_trials = study.best_trials
-            last_pareto = np.max([t.number for t in pareto_trials], axis=0) if pareto_trials else 0
-
-        
-            if pareto_stop > 0 and (len(study.trials) - last_pareto) >= pareto_stop:
-                # TODO: implement this as an actual stopping condition, not just a check and skip
-                print(f"Stopping optimization for {classifier_type} due to Pareto front stagnation.")
-                continue
 
             # Calculate number of studies per process
             N_studies_left = n_tests
