@@ -1,0 +1,7 @@
+{
+  "host": "localhost",
+  "port": 5432,
+  "database": "optuna_db",
+  "user": "optuna_user",
+  "password": "optuna_password"
+}

@@ -14,16 +14,17 @@ import os
 from utils.optimizer import OptimizationRunIn
 import getpass
 
-# Database configuration
-# NOTE: Update 'admin_password' with your actual PostgreSQL admin password
-POSTGRES_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'optuna_test',
-    'user': 'optuna_test_user',
-    'password': 'test_password',
-    'admin_user': 'postgres',
-}
+# Load PostgreSQL configuration from the optimizer
+postgres_config = OptimizationRunIn.load_postgres_config()
+
+# Database configuration for setup (add admin credentials if needed)
+POSTGRES_CONFIG = postgres_config.copy()
+if 'admin_user' not in POSTGRES_CONFIG:
+    print("Warning: No PostgreSQL admin user found in config. Using default admin user 'postgres'.")
+    POSTGRES_CONFIG['admin_user'] = 'postgres'  # Default admin user
+if 'admin_password' not in POSTGRES_CONFIG:
+    print("Warning: No PostgreSQL admin password found in config. Using default admin password 'postgres'.")
+    POSTGRES_CONFIG['admin_password'] = POSTGRES_CONFIG.get('password', 'postgres')  # Use same password or default
 
 n_proc = [1,2,3,4,5,10]
 

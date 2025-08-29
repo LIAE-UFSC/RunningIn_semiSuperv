@@ -4,3 +4,4 @@
 __pycache__
 /LabeledData/*
 /Figures/*
+postgres_config.json

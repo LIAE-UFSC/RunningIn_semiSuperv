@@ -486,22 +486,33 @@ Results/
 └── RunIn_QDA.db
 ```
 
-#### PostgreSQL Storage (Advanced)
+#### PostgreSQL Storage
 
 For large-scale optimizations or team collaboration, PostgreSQL provides better performance and concurrent access.
 
-**Configuration:**
-```python
-# In main_optuna_full_optimizer.py
-USE_POSTGRES = True  # Set to True to use PostgreSQL
-POSTGRES_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'optuna_db',
-    'user': 'optuna_user',
-    'password': 'optuna_password'
+##### PostgreSQL Configuration
+
+The project supports automatic PostgreSQL configuration loading from a JSON file, eliminating the need for hardcoded credentials in scripts.
+
+**Configuration File Setup:**
+
+1. Create a file named `postgres_config.json` in the `RunningIn_semiSuperv/` directory:
+
+```json
+{
+  "host": "localhost",
+  "port": 5432,
+  "database": "optuna_db",
+  "user": "optuna_user",
+  "password": "optuna_password"
 }
 ```
+
+2. **Automatic Loading**: When any script uses PostgreSQL (`USE_POSTGRES = True`), it automatically loads configuration from `postgres_config.json`.
+
+3. **Fallback Options**: If the file doesn't exist, the system will prompt you to:
+   - Use default configuration (option 1)
+   - Create a new configuration file interactively (option 2)
 
 **Setup Instructions:**
 

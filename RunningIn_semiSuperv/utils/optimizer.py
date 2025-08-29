@@ -4,6 +4,8 @@ import numpy as np
 import optuna
 import multiprocessing as mp
 from pathlib import Path
+import json
+import os
 
 def MCC_score_from_confusion_matrix(cm):
     """
@@ -29,6 +31,65 @@ class OptimizationRunIn():
     'password': 'optuna_password'
     }
 
+    @staticmethod
+    def _get_config_path():
+        """Get the path for the postgres configuration file."""
+        return Path(__file__).resolve().parent.parent / "postgres_config.json"
+    
+    @staticmethod
+    def load_postgres_config():
+        """
+        Load PostgreSQL configuration from JSON file or use defaults.
+        
+        Returns:
+            dict: PostgreSQL configuration dictionary
+        """
+        config_path = OptimizationRunIn._get_config_path()
+        
+        if config_path.exists():
+            try:
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+        
+        # File doesn't exist or is corrupted, ask user
+        print(f"PostgreSQL configuration file not found at: {config_path}")
+        choice = input("Would you like to (1) use default configuration or (2) create a new configuration file? [1/2]: ").strip()
+        
+        if choice == "2":
+            return OptimizationRunIn._create_config_file()
+        else:
+            return OptimizationRunIn._postgres_default_config.copy()
+    
+    @staticmethod
+    def _create_config_file():
+        """
+        Create a new PostgreSQL configuration file interactively.
+        
+        Returns:
+            dict: The created configuration
+        """
+        config_path = OptimizationRunIn._get_config_path()
+        
+        config = {}
+        
+        config['host'] = input(f"Enter PostgreSQL host [default: {OptimizationRunIn._postgres_default_config['host']}]: ").strip() or OptimizationRunIn._postgres_default_config['host']
+        config['port'] = int(input(f"Enter PostgreSQL port [default: {OptimizationRunIn._postgres_default_config['port']}]: ").strip() or OptimizationRunIn._postgres_default_config['port'])
+        config['database'] = input(f"Enter database name [default: {OptimizationRunIn._postgres_default_config['database']}]: ").strip() or OptimizationRunIn._postgres_default_config['database']
+        config['user'] = input(f"Enter username [default: {OptimizationRunIn._postgres_default_config['user']}]: ").strip() or OptimizationRunIn._postgres_default_config['user']
+        config['password'] = input(f"Enter password [default: {OptimizationRunIn._postgres_default_config['password']}]: ").strip() or OptimizationRunIn._postgres_default_config['password']
+        
+        # Save to file
+        try:
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=2)
+            print(f"Configuration saved to: {config_path}")
+        except IOError as e:
+            print(f"Failed to save configuration: {e}")
+        
+        return config
+
     supported_classifiers = [
             "LogisticRegression",
             "DecisionTreeClassifier",
@@ -52,7 +113,12 @@ class OptimizationRunIn():
         self.compressor_model = compressor_model
         self.max_init_samples = max_init_samples
         self.use_postgres = use_postgres
-        self.postgres_config = self._postgres_default_config
+        
+        # Load PostgreSQL configuration
+        if use_postgres:
+            self.postgres_config = self.load_postgres_config()
+        else:
+            self.postgres_config = self._postgres_default_config
 
     def select_classifier(self, trial):
         if self.classifier == "LogisticRegression":

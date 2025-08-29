@@ -60,13 +60,6 @@ def parse_args():
 
 # Database configuration
 USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
-POSTGRES_CONFIG = {
-    'host': '100.107.250.125',
-    'port': 5432,
-    'database': 'optuna_db',
-    'user': 'optuna_user',
-    'password': 'optuna_password'
-}
 
 if __name__ == "__main__":
     # Add stream handler of stdout to show the messages
@@ -88,8 +81,6 @@ if __name__ == "__main__":
 
             # Create an instance of the optimization class
             optimizer = OptimizationRunIn(classifier=classifier_type, compressor_model=compressor_model, use_postgres=True)
-
-            optimizer.postgres_config = POSTGRES_CONFIG  # Set the PostgreSQL config
             
             start_time = time.time()
 

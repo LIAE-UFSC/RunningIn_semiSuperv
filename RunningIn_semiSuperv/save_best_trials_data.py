@@ -1,22 +1,12 @@
 import optuna
 import matplotlib.pyplot as plt
 from utils import RunInSemiSupervised
+from utils.optimizer import OptimizationRunIn
 from sklearn.metrics import matthews_corrcoef
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
 import os
-
-POSTGRES_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'optuna_db',
-    'user': 'optuna_user',
-    'password': 'optuna_password'
-}
-
-compressor_models = ["a", "b", "all"]
-test_compressors = [["a3"],["b10"], ["a3","b10"]]
 
 def unpack_classifier_parameters(classifier: str,parameters: dict):
     if classifier == "LogisticRegression":
@@ -266,6 +256,12 @@ def save_single_study(study_name,storage_name, thr_labeled=0):
 
 if __name__ == "__main__":
     thr_labeled = 0
+
+    # Load PostgreSQL configuration
+    POSTGRES_CONFIG = OptimizationRunIn.load_postgres_config()
+
+    compressor_models = ["a", "b", "all"]
+    test_compressors = [["a3"],["b10"], ["a3","b10"]]
 
     storage_name = (f"postgresql://{POSTGRES_CONFIG['user']}:{POSTGRES_CONFIG['password']}"
                     f"@{POSTGRES_CONFIG['host']}:{POSTGRES_CONFIG['port']}"

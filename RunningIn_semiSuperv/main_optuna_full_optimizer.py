@@ -9,7 +9,7 @@ Database Configuration:
 2. PostgreSQL: Set USE_POSTGRES = True
    - Requires PostgreSQL server setup
    - Install dependencies: pip install psycopg2-binary
-   - Update POSTGRES_CONFIG with your database credentials
+   - Configuration loaded from postgres_config.json or defaults used
    
 PostgreSQL Setup:
 1. Install PostgreSQL server
@@ -25,12 +25,12 @@ PostgreSQL Setup:
    CREATE USER optuna_user WITH PASSWORD 'optuna_password';
    GRANT ALL PRIVILEGES ON DATABASE optuna_db TO optuna_user;
    ```
-4. Update POSTGRES_CONFIG dictionary below
+4. Configuration will be loaded automatically from postgres_config.json
 
 Common Issues:
 - "Failed to import DB access module": Install psycopg2-binary
 - Connection refused: Check PostgreSQL server is running
-- Authentication failed: Verify username/password in POSTGRES_CONFIG
+- Authentication failed: Check configuration in postgres_config.json
 """
 
 from utils import RunInSemiSupervised
@@ -71,13 +71,6 @@ auto_broadcast = args.auto_broadcast
 
 # Database configuration
 USE_POSTGRES = True  # Set to True to use PostgreSQL, False for SQLite
-POSTGRES_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'optuna_db',
-    'user': 'optuna_user',
-    'password': 'optuna_password'
-}
 
 def MCC_score_from_confusion_matrix(cm):
     """

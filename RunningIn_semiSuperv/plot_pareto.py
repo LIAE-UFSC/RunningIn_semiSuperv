@@ -1,15 +1,11 @@
 from utils.pareto import plot_pareto_per_compressor, get_valid_studies, get_pareto_front_multiple_studies, get_summary_studies
+from utils.optimizer import OptimizationRunIn
 import os
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    POSTGRES_CONFIG = {
-        'host': '100.107.250.125',
-        'port': 5432,
-        'database': 'optuna_db',
-        'user': 'optuna_user',
-        'password': 'optuna_password'
-    }
+    # Load PostgreSQL configuration
+    POSTGRES_CONFIG = OptimizationRunIn.load_postgres_config()
 
     output_dir = os.path.join("Results", "pareto_figs")
     os.makedirs(output_dir, exist_ok=True)
