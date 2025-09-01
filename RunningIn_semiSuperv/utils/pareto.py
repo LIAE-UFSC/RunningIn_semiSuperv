@@ -137,6 +137,7 @@ def get_summary_studies(storage_name = None, compressor_model = "a", summaries =
         if study_name in available_studies:
             idx = available_studies.index(study_name)
             trial = summaries[idx]
+            trial["pareto_trials"] = sorted(trial["pareto_trials"], key=lambda t: t.number)
             last_pareto = trial["pareto_trials"][-1].number if trial["pareto_trials"] else 0
             n_done = trial["total_studies"]
             line = f"{classifier}::: Trials Done: {n_done}       |  Last Pareto advance: {last_pareto}"
