@@ -1,5 +1,6 @@
 import optuna
 from matplotlib import pyplot as plt
+from typing import Tuple
 import itertools
 import multiprocessing as mp
 
@@ -96,7 +97,7 @@ def plot_pareto_per_compressor(storage_name = None, compressor_model = None, sum
         ax.set_title(f"Pareto Front for model {compressor_model.upper()}")
     return fig, ax
 
-def get_summary_studies(storage_name = None, compressor_model = "a", summaries = None):
+def get_summary_studies(storage_name = None, compressor_model = "a", summaries = None) -> Tuple[list, str]:
     if summaries is None:
         if storage_name is None:
             raise ValueError("Either summaries or storage_name must be provided.")
@@ -131,6 +132,8 @@ def get_summary_studies(storage_name = None, compressor_model = "a", summaries =
     print(header)
     print(title)
     print(header)
+
+    result_summary = []
     
     for classifier in supported_classifiers:
         study_name = f"RunIn_{classifier}_{compressor_model}"
@@ -142,10 +145,13 @@ def get_summary_studies(storage_name = None, compressor_model = "a", summaries =
             n_done = trial["total_studies"]
             line = f"{classifier}::: Trials Done: {n_done}       |  Last Pareto advance: {last_pareto}"
             str_summary += line + "\n"
+            result = {"classifier": classifier, "trials_done": n_done, "last_pareto": last_pareto, "compressor_model": compressor_model,
+                      "pareto_values": [t.values for t in trial["pareto_trials"]]}
+            result_summary.append(result)
             print(line)
         else:
             line = f"{classifier}::: Not found."
             str_summary += line + "\n"
             print(line)
     
-    return str_summary
+    return result_summary, str_summary

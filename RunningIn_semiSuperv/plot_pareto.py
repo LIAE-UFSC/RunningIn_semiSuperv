@@ -2,6 +2,7 @@ from utils.pareto import plot_pareto_per_compressor, get_valid_studies, get_pare
 from utils.optimizer import OptimizationRunIn
 import os
 import matplotlib.pyplot as plt
+import json
 
 if __name__ == "__main__":
     # Load PostgreSQL configuration
@@ -23,12 +24,20 @@ if __name__ == "__main__":
     summaries = get_pareto_front_multiple_studies(studies, storage_name)
     
     summary = ""
+    result = []
     for compressor_model in compressor_models:
-        summary += get_summary_studies(summaries=summaries, compressor_model=compressor_model)
+        r,s = get_summary_studies(summaries=summaries, compressor_model=compressor_model)
+        summary += s
+        result.extend(r)
         fig, ax = plot_pareto_per_compressor(summaries=summaries, compressor_model=compressor_model)
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"pareto_plot_{compressor_model}.png"))
 
     summary_path = os.path.join("Results", "pareto_summary.txt")
+    result_path = os.path.join("Results", "pareto_summary.json")
+
     with open(summary_path, "w") as f:
         f.write(str(summary))
+
+    with open(result_path, "w") as f:
+        json.dump(result, f, indent=4)
