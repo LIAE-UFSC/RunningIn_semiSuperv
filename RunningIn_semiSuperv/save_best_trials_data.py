@@ -8,8 +8,13 @@ import pandas as pd
 import multiprocessing as mp
 import os
 import tqdm
+import argparse
 
-USE_PARALLEL = False
+def parse_args():
+    parser = argparse.ArgumentParser(description="Save best trials data from Optuna studies.")
+    parser.add_argument("--use-parallel", action="store_true", help="Enable parallel processing.")
+    parser.add_argument("--use-norm", action="store_true", help="Enable normalization (currently unused).")
+    return parser.parse_args()
 
 def unpack_classifier_parameters(classifier: str,parameters: dict):
     if classifier == "LogisticRegression":
@@ -146,7 +151,7 @@ def get_labeled_data(X_train, Y_train, meta_train):
 
     return X_labeled, Y_labeled, meta_labeled
 
-def save_single_study(study_name,storage_name, thr_labeled=0):
+def save_single_study(study_name,storage_name, thr_labeled=0, use_norm=False):
     _, classifier, compressor_model = study_name.split("_")
     if compressor_model == "a":
         test_compressor = ["a3"]
@@ -157,14 +162,18 @@ def save_single_study(study_name,storage_name, thr_labeled=0):
 
     best_trials = optuna.load_study(study_name=study_name, storage=storage_name).best_trials
 
+    
     # Pick the trial with the best MCC which has at least a certain % of labeled
     valid_trials = [trial for trial in best_trials if trial.values[1] >= thr_labeled]
 
     if not valid_trials:
         print(f"No valid trials found for study {study_name} with compressor model {compressor_model}.")
         return
-
-    best_trial = max(valid_trials, key=lambda t: t.values[0])
+    
+    if use_norm:
+        best_trial = max(valid_trials, key=lambda t: np.linalg.norm(t.values, ord=2))
+    else:
+        best_trial = max(valid_trials, key=lambda t: t.values[0])
     trial_number = best_trial.number
     expected_MCC = best_trial.values[0]
     expected_percentage_labeled = best_trial.values[1]
@@ -260,6 +269,9 @@ def save_single_study(study_name,storage_name, thr_labeled=0):
     return result
 
 if __name__ == "__main__":
+    args = parse_args()
+    USE_PARALLEL = args.use_parallel
+    USE_NORM = args.use_norm
     thr_labeled = 0
 
     # Load PostgreSQL configuration
