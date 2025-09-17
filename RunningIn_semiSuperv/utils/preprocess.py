@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Union, Any, Tuple
 
+TEMP_FIX = True
 class RunInPreprocessor:
     """
     A preprocessor for run-in analysis data that handles time filtering, feature selection,
@@ -707,9 +708,15 @@ class RunInPreprocessor:
         if run_in_transition_max is not None:
             self.run_in_transition_max = run_in_transition_max
 
+        if TEMP_FIX:
+            # Temporary fix for forcing Amaciado to be recalculated
+            self.run_in_transition_max = float('inf')
+            self.run_in_transition_min = 5
+
         data = data.assign(Amaciado = -1)  # Unknown label
         data.loc[(data.Tempo <= self.run_in_transition_min) & (data.N_ensaio == 0), 'Amaciado'] = 0 # Known not run-in at beginning of first test
-        data.loc[(data.Tempo >= self.run_in_transition_max) & (data.N_ensaio == 0), 'Amaciado'] = 1 # Known run-in in first test
-        data.loc[(data.N_ensaio > 0), 'Amaciado'] = 1  # Known run-in after first test
+        if not TEMP_FIX:
+            data.loc[(data.Tempo >= self.run_in_transition_max) & (data.N_ensaio == 0), 'Amaciado'] = 1 # Known run-in in first test
+        data.loc[(data.Tempo >= 3) & (data.N_ensaio > 0), 'Amaciado'] = 1  # Known run-in after first test excluding peak
 
         return data
