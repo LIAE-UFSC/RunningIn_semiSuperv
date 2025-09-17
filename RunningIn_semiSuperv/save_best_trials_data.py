@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 import multiprocessing as mp
 import os
+import tqdm
+
+USE_PARALLEL = False
 
 def unpack_classifier_parameters(classifier: str,parameters: dict):
     if classifier == "LogisticRegression":
@@ -268,9 +271,15 @@ if __name__ == "__main__":
                     f"/{POSTGRES_CONFIG['database']}")
     
     studies = optuna.study.get_all_study_names(storage_name)
-    
-    with mp.Pool(len(studies)) as pool:
-        studies_results = pool.starmap(save_single_study, [(study, storage_name) for study in studies])
+
+    if USE_PARALLEL:
+        with mp.Pool(len(studies)) as pool:
+            studies_results = pool.starmap(save_single_study, [(study, storage_name) for study in studies])
+    else:
+        studies_results = []
+        for study in tqdm.tqdm(studies):
+            result = save_single_study(study, storage_name)
+            studies_results.append(result)
 
     # Save the results to a CSV file
     results_df = pd.DataFrame(studies_results)
