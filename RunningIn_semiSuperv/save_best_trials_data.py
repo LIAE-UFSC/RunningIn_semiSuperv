@@ -193,6 +193,8 @@ def save_single_study(study_name,storage_name, thr_labeled=0):
     )
 
     model.fit()
+    model.balance = "none"
+    model._preprocessor.balance = "none"
     X_train,Y_train = model.get_train_data()
     meta_train = model._preprocessor.get_train_metadata()
     X_train = X_train.reset_index(drop=True)
@@ -271,6 +273,7 @@ if __name__ == "__main__":
                     f"/{POSTGRES_CONFIG['database']}")
     
     studies = optuna.study.get_all_study_names(storage_name)
+
 
     if USE_PARALLEL:
         with mp.Pool(len(studies)) as pool:
