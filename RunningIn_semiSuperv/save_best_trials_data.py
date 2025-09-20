@@ -98,10 +98,11 @@ def unpack_classifier_parameters(classifier: str,parameters: dict):
 
     return classifier_parameters
 
-def join_score_data(X, Y, meta, Y_score):
+def join_score_data(X, Y, meta, Y_score, Y_predict):
     result = X.copy()
     result['Y_true'] = Y
     result['Y_score'] = Y_score
+    result['Y_predict'] = Y_predict
     result = result.join(meta)
     return result
 
@@ -236,8 +237,8 @@ def save_single_study(study_name,storage_name, thr_labeled=0, use_norm=False):
     Y_score_test = Y_score_test[:, pos_index]
     Y_score_train = Y_score_train[:, pos_index]
 
-    data_train = join_score_data(X_train, Y_train, meta_train, Y_score_train)
-    data_test = join_score_data(X_test, Y_test, meta_test, Y_score_test)
+    data_train = join_score_data(X_train, Y_train, meta_train, Y_score_train, Y_predict_train)
+    data_test = join_score_data(X_test, Y_test, meta_test, Y_score_test, Y_test_predict)
 
     # Save the dataframes to CSV files
     results_dir = os.path.join("Results", "data")
