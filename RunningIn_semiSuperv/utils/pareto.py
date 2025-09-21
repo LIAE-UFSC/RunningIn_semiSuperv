@@ -4,6 +4,18 @@ from typing import Tuple
 import itertools
 import multiprocessing as mp
 
+classifier_names = {"LogisticRegression": "Regressão logística", 
+                    "DecisionTreeClassifier": "Árvore de decisão",
+                    "KNeighborsClassifier": "K-vizinhos mais próximos",
+                    "LinearSVM": "MVS linear",
+                    "RBFSVM": "MVS FBR",
+                    "RandomForest": "Floresta aleatória",
+                    "NeuralNet": "Rede neural",
+                    "AdaBoost": "AdaBoost",
+                    "NaiveBayes": "Bayes ingênuo",
+                    "QDA": "Análise discriminante quadrática"
+                    }
+
 def get_valid_studies(storage_name, compressor_model = None):
     studies = optuna.get_all_study_names(storage=storage_name)
     valid_studies = []
